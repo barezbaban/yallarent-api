@@ -13,6 +13,7 @@ export interface AuthState {
   login: (phone: string, password: string) => Promise<void>;
   signup: (fullName: string, phone: string, password: string, city: string) => Promise<void>;
   logout: () => void;
+  updateUser: (data: { full_name: string; phone: string; city?: string }) => void;
 }
 
 export const AuthContext = createContext<AuthState>({
@@ -21,6 +22,7 @@ export const AuthContext = createContext<AuthState>({
   login: async () => {},
   signup: async () => {},
   logout: () => {},
+  updateUser: () => {},
 });
 
 export function useAuth() {

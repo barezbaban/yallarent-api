@@ -3,34 +3,35 @@ const carQueries = require('../db/carQueries');
 
 async function create(req, res) {
   try {
-    const { carId, startDate, endDate } = req.body;
+    const { carId, startDate, endDate, pickupTime, dropoffTime, pickupLocation, dropoffLocation } = req.body;
     const renterId = req.user.id;
-
-    if (!carId || !startDate || !endDate) {
-      return res.status(400).json({ error: 'carId, startDate, and endDate are required' });
-    }
 
     const car = await carQueries.findById(carId);
     if (!car) return res.status(404).json({ error: 'Car not found' });
-    if (!car.is_available) return res.status(400).json({ error: 'Car is not available' });
-
-    const overlap = await bookingQueries.hasOverlap(carId, startDate, endDate);
-    if (overlap) return res.status(409).json({ error: 'Car is already booked for those dates' });
 
     const days = Math.ceil(
       (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)
     );
     const totalPrice = days * car.price_per_day;
 
-    const booking = await bookingQueries.create({
+    // Atomic transaction: locks car row, checks overlap, then inserts
+    const result = await bookingQueries.create({
       carId,
       renterId,
       startDate,
       endDate,
       totalPrice,
+      pickupTime,
+      dropoffTime,
+      pickupLocation: pickupLocation || `${car.company_name}, ${car.company_city}`,
+      dropoffLocation: dropoffLocation || `${car.company_name}, ${car.company_city}`,
     });
 
-    res.status(201).json(booking);
+    if (result.conflict) {
+      return res.status(409).json({ error: result.reason });
+    }
+
+    res.status(201).json(result.booking);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create booking' });
   }
@@ -58,4 +59,24 @@ async function getById(req, res) {
   }
 }
 
-module.exports = { create, myBookings, getById };
+async function cancel(req, res) {
+  try {
+    const booking = await bookingQueries.findById(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.renter_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ error: 'Booking is already cancelled' });
+    }
+    if (new Date(booking.start_date) <= new Date()) {
+      return res.status(400).json({ error: 'Cannot cancel a booking that has already started' });
+    }
+    const updated = await bookingQueries.cancel(req.params.id);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to cancel booking' });
+  }
+}
+
+module.exports = { create, myBookings, getById, cancel };

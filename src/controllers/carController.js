@@ -2,13 +2,15 @@ const carQueries = require('../db/carQueries');
 
 async function list(req, res) {
   try {
-    const { city, min_price, max_price } = req.query;
-    const cars = await carQueries.findAll({
+    const { city, min_price, max_price, page, limit } = req.query;
+    const result = await carQueries.findAll({
       city,
-      minPrice: min_price ? Number(min_price) : undefined,
-      maxPrice: max_price ? Number(max_price) : undefined,
+      minPrice: min_price,
+      maxPrice: max_price,
+      page: page || 1,
+      limit: limit || 20,
     });
-    res.json(cars);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch cars' });
   }

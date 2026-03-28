@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,20 +11,40 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
-import { Car, carsApi } from '../../services/api';
+import { Car, carsApi, favoritesApi } from '../../services/api';
+import { useAuth } from '../../services/auth';
+import ImageCarousel from '../../components/ImageCarousel';
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1549317661-bd32c8ce0afa?w=800&q=80';
 
 export default function CarDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuth();
   const [car, setCar] = useState<Car | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     carsApi.getById(id).then(setCar).catch(() => {}).finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!user || !id) return;
+    favoritesApi.getIds().then((ids) => setIsFavorite(ids.includes(id))).catch(() => {});
+  }, [user, id]);
+
+  const toggleFavorite = async () => {
+    if (!user) return;
+    if (isFavorite) {
+      setIsFavorite(false);
+      await favoritesApi.remove(id!).catch(() => setIsFavorite(true));
+    } else {
+      setIsFavorite(true);
+      await favoritesApi.add(id!).catch(() => setIsFavorite(false));
+    }
+  };
 
   if (loading) {
     return (
@@ -56,19 +75,26 @@ export default function CarDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Hero Image */}
+        {/* Hero Image Carousel */}
         <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: car.image_url || PLACEHOLDER_IMAGE }}
-            style={styles.heroImage}
-            resizeMode="cover"
+          <ImageCarousel
+            images={
+              car.images && car.images.length > 0
+                ? car.images.map((img) => img.image_url)
+                : [car.image_url || PLACEHOLDER_IMAGE]
+            }
+            height={280}
           />
           <SafeAreaView style={styles.imageOverlay} edges={['top']}>
             <Pressable style={styles.roundButton} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={22} color={Colors.foreground} />
             </Pressable>
-            <Pressable style={styles.roundButton}>
-              <Ionicons name="heart-outline" size={22} color={Colors.foreground} />
+            <Pressable style={styles.roundButton} onPress={toggleFavorite}>
+              <Ionicons
+                name={isFavorite ? 'heart' : 'heart-outline'}
+                size={22}
+                color={isFavorite ? Colors.error : Colors.foreground}
+              />
             </Pressable>
           </SafeAreaView>
         </View>
@@ -171,11 +197,6 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-  },
-  heroImage: {
-    width: '100%',
-    height: 280,
-    backgroundColor: Colors.surfaceSecondary,
   },
   imageOverlay: {
     position: 'absolute',

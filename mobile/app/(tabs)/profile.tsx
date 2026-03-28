@@ -1,9 +1,10 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import { useAuth } from '../../services/auth';
+import { useAlert } from '../../services/alert';
 
 function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPress?: () => void }) {
   return (
@@ -18,12 +19,18 @@ function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPre
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { showAlert } = useAlert();
 
   const handleLogout = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: logout },
-    ]);
+    showAlert({
+      title: 'Log Out',
+      message: 'Are you sure you want to log out?',
+      type: 'confirm',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log Out', style: 'destructive', onPress: logout },
+      ],
+    });
   };
 
   if (!user) {
@@ -61,7 +68,7 @@ export default function ProfileScreen() {
       <Text style={styles.title}>Profile</Text>
 
       {/* User Info */}
-      <View style={styles.userCard}>
+      <Pressable style={styles.userCard} onPress={() => router.push('/edit-profile')}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
@@ -70,12 +77,13 @@ export default function ProfileScreen() {
           <Text style={styles.userPhone}>{user.phone}</Text>
           {user.city && <Text style={styles.userCity}>{user.city}</Text>}
         </View>
-      </View>
+        <Ionicons name="create-outline" size={20} color={Colors.foregroundMuted} />
+      </Pressable>
 
       {/* Menu */}
       <View style={styles.menu}>
         <MenuItem icon="car-outline" label="My Bookings" onPress={() => router.push('/(tabs)/bookings')} />
-        <MenuItem icon="heart-outline" label="Favorites" />
+        <MenuItem icon="heart-outline" label="Favorites" onPress={() => router.push('/favorites')} />
         <MenuItem icon="notifications-outline" label="Notifications" />
         <MenuItem icon="settings-outline" label="Settings" />
         <MenuItem icon="help-circle-outline" label="Help & Support" />

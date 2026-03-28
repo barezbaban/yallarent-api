@@ -28,6 +28,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export interface CarImage {
+  id: string;
+  image_url: string;
+  display_order: number;
+}
+
 export interface Car {
   id: string;
   company_id: string;
@@ -43,6 +49,8 @@ export interface Car {
   company_name: string;
   company_city: string;
   company_phone?: string;
+  company_address?: string;
+  images?: CarImage[];
 }
 
 export interface Booking {
@@ -52,6 +60,10 @@ export interface Booking {
   start_date: string;
   end_date: string;
   total_price: number;
+  pickup_time?: string;
+  dropoff_time?: string;
+  pickup_location?: string;
+  dropoff_location?: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   created_at: string;
   make?: string;
@@ -77,25 +89,56 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ fullName, phone, password, city }),
     }),
+  updateProfile: (data: { fullName?: string; city?: string }) =>
+    request<{ id: string; full_name: string; phone: string; city?: string }>('/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 };
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export const carsApi = {
-  list: (params?: { city?: string; min_price?: number; max_price?: number }) => {
+  list: (params?: { city?: string; min_price?: number; max_price?: number; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
     if (params?.city) query.set('city', params.city);
     if (params?.min_price) query.set('min_price', String(params.min_price));
     if (params?.max_price) query.set('max_price', String(params.max_price));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();
-    return request<Car[]>(`/cars${qs ? `?${qs}` : ''}`);
+    return request<PaginatedResponse<Car>>(`/cars${qs ? `?${qs}` : ''}`);
   },
   getById: (id: string) => request<Car>(`/cars/${id}`),
 };
 
+export const favoritesApi = {
+  list: () => request<{ id: string; car_id: string; make: string; model: string; year: number; price_per_day: number; city: string; image_url: string | null; company_name: string }[]>('/favorites'),
+  getIds: () => request<string[]>('/favorites/ids'),
+  add: (carId: string) => request<{ message: string }>('/favorites', { method: 'POST', body: JSON.stringify({ carId }) }),
+  remove: (carId: string) => request<{ message: string }>(`/favorites/${carId}`, { method: 'DELETE' }),
+};
+
+export const devicesApi = {
+  register: (pushToken: string, platform: string = 'ios') =>
+    request<{ id: string }>('/devices', { method: 'POST', body: JSON.stringify({ pushToken, platform }) }),
+  unregister: (pushToken: string) =>
+    request<{ message: string }>('/devices', { method: 'DELETE', body: JSON.stringify({ pushToken }) }),
+};
+
 export const bookingsApi = {
   list: () => request<Booking[]>('/bookings'),
-  create: (data: { carId: string; startDate: string; endDate: string }) =>
+  create: (data: { carId: string; startDate: string; endDate: string; pickupTime?: string; dropoffTime?: string; pickupLocation?: string; dropoffLocation?: string }) =>
     request<Booking>('/bookings', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  cancel: (id: string) =>
+    request<Booking>(`/bookings/${id}/cancel`, { method: 'PATCH' }),
 };

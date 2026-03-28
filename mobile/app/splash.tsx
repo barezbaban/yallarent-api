@@ -2,14 +2,22 @@ import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import { Colors, FontWeight, Spacing } from '../constants/theme';
+
+const ONBOARDING_KEY = 'onboarding_complete';
 
 export default function SplashScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      router.replace('/');
+    const timer = setTimeout(async () => {
+      const done = await SecureStore.getItemAsync(ONBOARDING_KEY);
+      if (done) {
+        router.replace('/');
+      } else {
+        router.replace('/onboarding');
+      }
     }, 2000);
     return () => clearTimeout(timer);
   }, [router]);

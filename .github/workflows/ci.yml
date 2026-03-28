@@ -55,6 +55,13 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
 
+      - name: Run tests
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/yallarent_test
+          JWT_SECRET: ci-test-secret
+          NODE_ENV: test
+
       - name: Health check
         run: |
           node src/index.js &

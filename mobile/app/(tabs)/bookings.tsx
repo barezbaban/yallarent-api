@@ -8,12 +8,14 @@ import FilterChips from '../../components/FilterChips';
 import BookingCard from '../../components/BookingCard';
 import { bookingsApi, Booking } from '../../services/api';
 import { useAuth } from '../../services/auth';
+import { useAlert } from '../../services/alert';
 
 const TABS = ['All', 'Upcoming', 'Past'];
 
 export default function BookingsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState('All');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,28 @@ export default function BookingsScreen() {
               endDate={new Date(item.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               totalPrice={item.total_price}
               status={item.status}
+              onCancel={() => {
+                showAlert({
+                  title: 'Cancel Booking',
+                  message: 'Are you sure you want to cancel this booking?',
+                  type: 'confirm',
+                  buttons: [
+                    { text: 'No', style: 'cancel' },
+                    {
+                      text: 'Yes, Cancel',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await bookingsApi.cancel(item.id);
+                          fetchBookings();
+                        } catch {
+                          showAlert({ title: 'Error', message: 'Failed to cancel booking', type: 'error' });
+                        }
+                      },
+                    },
+                  ],
+                });
+              }}
             />
           )}
           contentContainerStyle={styles.list}

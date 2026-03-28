@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import {
-  Alert,
+  FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,13 +15,35 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 import { useAuth } from '../services/auth';
+import { useAlert } from '../services/alert';
 
 type Tab = 'login' | 'signup';
+
+const COUNTRY_CODES = [
+  { code: '+964', flag: '🇮🇶', name: 'Iraq' },
+  { code: '+966', flag: '🇸🇦', name: 'Saudi Arabia' },
+  { code: '+971', flag: '🇦🇪', name: 'UAE' },
+  { code: '+962', flag: '🇯🇴', name: 'Jordan' },
+  { code: '+90', flag: '🇹🇷', name: 'Turkey' },
+  { code: '+98', flag: '🇮🇷', name: 'Iran' },
+  { code: '+965', flag: '🇰🇼', name: 'Kuwait' },
+  { code: '+974', flag: '🇶🇦', name: 'Qatar' },
+  { code: '+973', flag: '🇧🇭', name: 'Bahrain' },
+  { code: '+968', flag: '🇴🇲', name: 'Oman' },
+  { code: '+961', flag: '🇱🇧', name: 'Lebanon' },
+  { code: '+963', flag: '🇸🇾', name: 'Syria' },
+  { code: '+20', flag: '🇪🇬', name: 'Egypt' },
+  { code: '+44', flag: '🇬🇧', name: 'UK' },
+  { code: '+1', flag: '🇺🇸', name: 'USA' },
+];
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, signup } = useAuth();
+  const { showAlert } = useAlert();
   const [tab, setTab] = useState<Tab>('login');
+  const [countryCode, setCountryCode] = useState(COUNTRY_CODES[0]);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -30,24 +53,28 @@ export default function LoginScreen() {
 
   const handleSubmit = async () => {
     if (!phone || !password) {
-      Alert.alert('Error', 'Phone and password are required');
+      showAlert({ title: 'Missing Fields', message: 'Phone and password are required', type: 'warning' });
       return;
     }
     if (tab === 'signup' && !fullName) {
-      Alert.alert('Error', 'Full name is required');
+      showAlert({ title: 'Missing Fields', message: 'Full name is required', type: 'warning' });
       return;
     }
 
     setLoading(true);
+    const digits = phone.replace(/[\s\-()]/g, '');
+    const cleanPhone = digits.startsWith('0')
+      ? countryCode.code + digits.slice(1)
+      : countryCode.code + digits;
     try {
       if (tab === 'login') {
-        await login(phone, password);
+        await login(cleanPhone, password);
       } else {
-        await signup(fullName, phone, password, city);
+        await signup(fullName, cleanPhone, password, city);
       }
       router.back();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Something went wrong');
+      showAlert({ title: 'Error', message: err.message || 'Something went wrong', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -113,16 +140,25 @@ export default function LoginScreen() {
 
         {/* Phone */}
         <Text style={styles.label}>Phone Number</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons name="call-outline" size={20} color={Colors.foregroundMuted} />
-          <TextInput
-            style={styles.input}
-            placeholder="0770 123 4567"
-            placeholderTextColor={Colors.foregroundMuted}
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
-          />
+        <View style={styles.phoneRow}>
+          <Pressable
+            style={styles.countryCodeButton}
+            onPress={() => setShowCountryPicker(true)}
+          >
+            <Text style={styles.countryFlag}>{countryCode.flag}</Text>
+            <Text style={styles.countryCodeText}>{countryCode.code}</Text>
+            <Ionicons name="chevron-down" size={14} color={Colors.foregroundMuted} />
+          </Pressable>
+          <View style={styles.phoneInputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="770 123 4567"
+              placeholderTextColor={Colors.foregroundMuted}
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+            />
+          </View>
         </View>
 
         {/* Password */}
@@ -187,6 +223,43 @@ export default function LoginScreen() {
           </Text>
         )}
       </KeyboardAvoidingView>
+
+      {/* Country Code Picker */}
+      <Modal visible={showCountryPicker} animationType="slide" transparent>
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContent}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Select Country</Text>
+              <Pressable onPress={() => setShowCountryPicker(false)}>
+                <Ionicons name="close" size={24} color={Colors.foreground} />
+              </Pressable>
+            </View>
+            <FlatList
+              data={COUNTRY_CODES}
+              keyExtractor={(item) => item.code}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[
+                    styles.countryItem,
+                    item.code === countryCode.code && styles.countryItemActive,
+                  ]}
+                  onPress={() => {
+                    setCountryCode(item);
+                    setShowCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryItemFlag}>{item.flag}</Text>
+                  <Text style={styles.countryItemName}>{item.name}</Text>
+                  <Text style={styles.countryItemCode}>{item.code}</Text>
+                  {item.code === countryCode.code && (
+                    <Ionicons name="checkmark" size={20} color={Colors.primary} />
+                  )}
+                </Pressable>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -254,6 +327,38 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     gap: Spacing.sm,
   },
+  phoneRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  countryCodeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.button,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  countryFlag: {
+    fontSize: 18,
+  },
+  countryCodeText: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  phoneInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.button,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
   input: {
     flex: 1,
     fontSize: FontSize.body,
@@ -302,5 +407,53 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: Colors.foreground,
     textAlign: 'center',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerContent: {
+    backgroundColor: Colors.surfacePrimary,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '60%',
+    paddingBottom: Spacing['3xl'],
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  pickerTitle: {
+    fontSize: FontSize.sectionHeader,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  countryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+  },
+  countryItemActive: {
+    backgroundColor: Colors.tealLight,
+  },
+  countryItemFlag: {
+    fontSize: 22,
+  },
+  countryItemName: {
+    flex: 1,
+    fontSize: FontSize.body,
+    color: Colors.foreground,
+  },
+  countryItemCode: {
+    fontSize: FontSize.body,
+    color: Colors.foregroundSecondary,
+    fontWeight: FontWeight.semibold,
   },
 });

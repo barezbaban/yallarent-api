@@ -11,6 +11,7 @@ interface BookingCardProps {
   totalPrice: number;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   onPress?: () => void;
+  onCancel?: () => void;
 }
 
 const STATUS_CONFIG = {
@@ -31,6 +32,7 @@ export default function BookingCard({
   totalPrice,
   status,
   onPress,
+  onCancel,
 }: BookingCardProps) {
   const statusConfig = STATUS_CONFIG[status];
 
@@ -59,6 +61,12 @@ export default function BookingCard({
         </View>
         <Text style={styles.price}>{totalPrice.toLocaleString()} IQD</Text>
       </View>
+      {(status === 'pending' || status === 'confirmed') && onCancel && (
+        <Pressable style={styles.cancelButton} onPress={onCancel}>
+          <Ionicons name="close-circle-outline" size={16} color={Colors.error} />
+          <Text style={styles.cancelText}>Cancel Booking</Text>
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -127,5 +135,20 @@ const styles = StyleSheet.create({
     fontSize: FontSize.cardTitle,
     fontWeight: FontWeight.bold,
     color: Colors.primary,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  cancelText: {
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.semibold,
+    color: Colors.error,
   },
 });

@@ -20,6 +20,9 @@ export default function BookingConfirmedScreen() {
     endDate: string;
     days: string;
     pickup: string;
+    dropoff: string;
+    pickupTime: string;
+    dropoffTime: string;
     total: string;
   }>();
 
@@ -31,7 +34,10 @@ export default function BookingConfirmedScreen() {
     { label: 'Company', value: params.company },
     { label: 'Dates', value: `${params.startDate} – ${params.endDate}` },
     { label: 'Duration', value: `${params.days} days` },
-    { label: 'Pickup', value: params.pickup },
+    { label: 'Pickup', value: `${params.pickup}` },
+    { label: 'Pickup Time', value: params.pickupTime || '9:00 AM' },
+    { label: 'Dropoff', value: params.dropoff || params.pickup },
+    { label: 'Dropoff Time', value: params.dropoffTime || '9:00 AM' },
   ];
 
   return (

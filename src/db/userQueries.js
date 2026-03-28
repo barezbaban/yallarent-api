@@ -21,4 +21,33 @@ async function findById(id) {
   return rows[0];
 }
 
-module.exports = { findByPhone, create, findById };
+async function update(id, { fullName, city }) {
+  const { rows } = await pool.query(
+    `UPDATE users SET full_name = COALESCE($2, full_name), city = COALESCE($3, city)
+     WHERE id = $1
+     RETURNING id, full_name, phone, city, created_at`,
+    [id, fullName, city]
+  );
+  return rows[0];
+}
+
+async function incrementFailedAttempts(phone) {
+  const { rows } = await pool.query(
+    `UPDATE users SET failed_login_attempts = failed_login_attempts + 1,
+       locked_until = CASE WHEN failed_login_attempts + 1 >= 5
+         THEN NOW() + INTERVAL '15 minutes' ELSE locked_until END
+     WHERE phone = $1
+     RETURNING failed_login_attempts, locked_until`,
+    [phone]
+  );
+  return rows[0];
+}
+
+async function resetFailedAttempts(phone) {
+  await pool.query(
+    'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE phone = $1',
+    [phone]
+  );
+}
+
+module.exports = { findByPhone, create, findById, update, incrementFailedAttempts, resetFailedAttempts };

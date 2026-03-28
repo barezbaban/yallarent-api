@@ -7,7 +7,7 @@ const API_URLS: Record<string, string> = {
 };
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const env = process.env.APP_ENV || 'production';
+  const env = process.env.APP_ENV || 'dev';
   const apiUrl = API_URLS[env] || API_URLS.production;
 
   return {
@@ -37,7 +37,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     web: {
       bundler: 'metro' as const,
     },
-    plugins: ['expo-router'],
+    plugins: [
+      'expo-router',
+      [
+        'expo-notifications',
+        {
+          sounds: [],
+        },
+      ],
+    ],
     extra: {
       apiUrl,
       appEnv: env,
