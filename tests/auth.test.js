@@ -10,7 +10,7 @@ describe('POST /api/auth/signup', () => {
     const res = await request(app).post('/api/auth/signup').send({
       fullName: 'Test User',
       phone: '07501111111',
-      password: 'test1234',
+      password: 'Test1234',
       city: 'Erbil',
     });
     expect(res.status).toBe(201);
@@ -22,7 +22,7 @@ describe('POST /api/auth/signup', () => {
     const res = await request(app).post('/api/auth/signup').send({
       fullName: 'Another User',
       phone: '07501111111',
-      password: 'test1234',
+      password: 'Test1234',
       city: 'Baghdad',
     });
     expect(res.status).toBe(409);
@@ -40,7 +40,7 @@ describe('POST /api/auth/login', () => {
   it('logs in with correct credentials', async () => {
     const res = await request(app).post('/api/auth/login').send({
       phone: '07501111111',
-      password: 'test1234',
+      password: 'Test1234',
     });
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
@@ -57,7 +57,7 @@ describe('POST /api/auth/login', () => {
   it('rejects unknown phone', async () => {
     const res = await request(app).post('/api/auth/login').send({
       phone: '07509999999',
-      password: 'test1234',
+      password: 'Test1234',
     });
     expect(res.status).toBe(401);
   });
@@ -67,7 +67,7 @@ describe('GET /api/auth/me', () => {
   it('returns user with valid token', async () => {
     const login = await request(app).post('/api/auth/login').send({
       phone: '07501111111',
-      password: 'test1234',
+      password: 'Test1234',
     });
     const res = await request(app)
       .get('/api/auth/me')

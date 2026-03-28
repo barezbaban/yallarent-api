@@ -10,7 +10,7 @@ beforeAll(async () => {
   const res = await request(app).post('/api/auth/signup').send({
     fullName: 'Booking User',
     phone: '07503333333',
-    password: 'test1234',
+    password: 'Test1234',
     city: 'Erbil',
   });
   token = res.body.token;

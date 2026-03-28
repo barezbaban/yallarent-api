@@ -19,7 +19,7 @@ async function signup(req, res) {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await userQueries.create({ fullName, phone, passwordHash, city });
 
-    const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '30d' });
+    const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
 
     res.status(201).json({ user, token });
   } catch (err) {
@@ -45,7 +45,7 @@ async function login(req, res) {
       return res.status(401).json({ error: 'Invalid phone or password' });
     }
 
-    const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '30d' });
+    const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
 
     res.json({
       user: { id: user.id, full_name: user.full_name, phone: user.phone, city: user.city },
