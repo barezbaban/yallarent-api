@@ -6,9 +6,6 @@
     "orientation": "portrait",
     "scheme": "yallarent",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#0F2B46"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yallarent.app"
