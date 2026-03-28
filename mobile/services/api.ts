@@ -1,6 +1,4 @@
-const API_URL = __DEV__
-  ? 'http://192.168.1.84:3000/api'
-  : 'https://api.yallarent.app/api';
+const API_URL = 'https://yallarent-api-production.up.railway.app/api';
 
 let _token: string | null = null;
 
