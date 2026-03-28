@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -13,17 +12,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 import { authApi } from '../services/api';
 import { useAuth } from '../services/auth';
+import { useAlert } from '../services/alert';
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user, updateUser } = useAuth();
+  const { showAlert } = useAlert();
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [city, setCity] = useState(user?.city || '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Error', 'Name is required');
+      showAlert({ title: 'Error', message: 'Name is required', type: 'warning' });
       return;
     }
     setSaving(true);
@@ -35,7 +36,7 @@ export default function EditProfileScreen() {
       updateUser(updated);
       router.back();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update profile');
+      showAlert({ title: 'Error', message: err.message || 'Failed to update profile', type: 'error' });
     } finally {
       setSaving(false);
     }

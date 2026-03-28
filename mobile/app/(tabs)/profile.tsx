@@ -1,9 +1,10 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import { useAuth } from '../../services/auth';
+import { useAlert } from '../../services/alert';
 
 function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPress?: () => void }) {
   return (
@@ -18,12 +19,18 @@ function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPre
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { showAlert } = useAlert();
 
   const handleLogout = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: logout },
-    ]);
+    showAlert({
+      title: 'Log Out',
+      message: 'Are you sure you want to log out?',
+      type: 'confirm',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log Out', style: 'destructive', onPress: logout },
+      ],
+    });
   };
 
   if (!user) {
