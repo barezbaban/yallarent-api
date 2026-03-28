@@ -48,4 +48,12 @@ async function hasOverlap(carId, startDate, endDate) {
   return rows.length > 0;
 }
 
-module.exports = { create, findByRenter, findById, hasOverlap };
+async function cancel(id) {
+  const { rows } = await pool.query(
+    `UPDATE bookings SET status = 'cancelled' WHERE id = $1 RETURNING *`,
+    [id]
+  );
+  return rows[0];
+}
+
+module.exports = { create, findByRenter, findById, hasOverlap, cancel };

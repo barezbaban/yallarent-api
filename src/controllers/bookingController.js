@@ -58,4 +58,21 @@ async function getById(req, res) {
   }
 }
 
-module.exports = { create, myBookings, getById };
+async function cancel(req, res) {
+  try {
+    const booking = await bookingQueries.findById(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.renter_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ error: 'Booking is already cancelled' });
+    }
+    const updated = await bookingQueries.cancel(req.params.id);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to cancel booking' });
+  }
+}
+
+module.exports = { create, myBookings, getById, cancel };

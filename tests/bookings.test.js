@@ -69,3 +69,36 @@ describe('GET /api/bookings', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('PATCH /api/bookings/:id/cancel', () => {
+  it('cancels a booking', async () => {
+    const bookings = await request(app)
+      .get('/api/bookings')
+      .set('Authorization', `Bearer ${token}`);
+    const bookingId = bookings.body[0].id;
+
+    const res = await request(app)
+      .patch(`/api/bookings/${bookingId}/cancel`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('cancelled');
+  });
+
+  it('rejects cancelling already cancelled booking', async () => {
+    const bookings = await request(app)
+      .get('/api/bookings')
+      .set('Authorization', `Bearer ${token}`);
+    const cancelledBooking = bookings.body.find((b) => b.status === 'cancelled');
+
+    const res = await request(app)
+      .patch(`/api/bookings/${cancelledBooking.id}/cancel`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects without auth', async () => {
+    const res = await request(app)
+      .patch('/api/bookings/00000000-0000-0000-0000-000000000000/cancel');
+    expect(res.status).toBe(401);
+  });
+});

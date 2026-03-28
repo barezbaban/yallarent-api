@@ -98,4 +98,6 @@ export const bookingsApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  cancel: (id: string) =>
+    request<Booking>(`/bookings/${id}/cancel`, { method: 'PATCH' }),
 };
