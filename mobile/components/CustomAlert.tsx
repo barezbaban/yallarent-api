@@ -1,4 +1,5 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 
@@ -31,6 +32,22 @@ const ICONS: Record<string, { name: string; color: string; bg: string }> = {
 export default function CustomAlert({ visible, config, onDismiss }: Props) {
   const { title, message, type = 'error', buttons } = config;
   const icon = ICONS[type];
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 8, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+      scale.setValue(0.9);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
 
   const alertButtons = buttons || [{ text: 'OK', style: 'default' as const }];
 
@@ -40,62 +57,66 @@ export default function CustomAlert({ visible, config, onDismiss }: Props) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
-      <Pressable style={styles.overlay} onPress={onDismiss}>
-        <Pressable style={styles.container} onPress={(e) => e.stopPropagation()}>
-          <View style={[styles.iconCircle, { backgroundColor: icon.bg }]}>
-            <Ionicons name={icon.name as any} size={32} color={icon.color} />
-          </View>
+    <Animated.View style={[styles.overlay, { opacity }]} pointerEvents="auto">
+      <Pressable style={styles.overlayBg} onPress={onDismiss} />
+      <Animated.View style={[styles.container, { transform: [{ scale }] }]}>
+        <View style={[styles.iconCircle, { backgroundColor: icon.bg }]}>
+          <Ionicons name={icon.name as any} size={32} color={icon.color} />
+        </View>
 
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.message}>{message}</Text>
 
-          <View style={styles.buttonRow}>
-            {alertButtons.map((btn, i) => {
-              const isDestructive = btn.style === 'destructive';
-              const isCancel = btn.style === 'cancel';
-              const isPrimary = !isCancel && alertButtons.length > 1 && i === alertButtons.length - 1;
+        <View style={styles.buttonRow}>
+          {alertButtons.map((btn, i) => {
+            const isDestructive = btn.style === 'destructive';
+            const isCancel = btn.style === 'cancel';
+            const isPrimary = !isCancel && alertButtons.length > 1 && i === alertButtons.length - 1;
 
-              return (
-                <Pressable
-                  key={i}
+            return (
+              <Pressable
+                key={i}
+                style={[
+                  styles.button,
+                  alertButtons.length === 1 && styles.buttonFull,
+                  isCancel && styles.buttonCancel,
+                  isDestructive && styles.buttonDestructive,
+                  isPrimary && !isDestructive && styles.buttonPrimary,
+                  !isCancel && !isDestructive && !isPrimary && alertButtons.length === 1 && styles.buttonPrimary,
+                ]}
+                onPress={() => handlePress(btn)}
+              >
+                <Text
                   style={[
-                    styles.button,
-                    alertButtons.length === 1 && styles.buttonFull,
-                    isCancel && styles.buttonCancel,
-                    isDestructive && styles.buttonDestructive,
-                    isPrimary && !isDestructive && styles.buttonPrimary,
-                    !isCancel && !isDestructive && !isPrimary && alertButtons.length === 1 && styles.buttonPrimary,
+                    styles.buttonText,
+                    isCancel && styles.buttonTextCancel,
+                    isDestructive && styles.buttonTextDestructive,
+                    (isPrimary || (!isCancel && !isDestructive && alertButtons.length === 1)) && styles.buttonTextPrimary,
                   ]}
-                  onPress={() => handlePress(btn)}
                 >
-                  <Text
-                    style={[
-                      styles.buttonText,
-                      isCancel && styles.buttonTextCancel,
-                      isDestructive && styles.buttonTextDestructive,
-                      (isPrimary || (!isCancel && !isDestructive && alertButtons.length === 1)) && styles.buttonTextPrimary,
-                    ]}
-                  >
-                    {btn.text}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+                  {btn.text}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing['3xl'],
+    zIndex: 9999,
+    elevation: 9999,
+  },
+  overlayBg: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   container: {
     backgroundColor: Colors.surfacePrimary,

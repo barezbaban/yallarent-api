@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react';
+import { View } from 'react-native';
 import CustomAlert, { AlertConfig, AlertButton } from '../components/CustomAlert';
 
 interface AlertContextType {
@@ -20,12 +21,14 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AlertContext.Provider value={{ showAlert }}>
-      {children}
-      <CustomAlert
-        visible={visible}
-        config={config}
-        onDismiss={() => setVisible(false)}
-      />
+      <View style={{ flex: 1 }}>
+        {children}
+        <CustomAlert
+          visible={visible}
+          config={config}
+          onDismiss={() => setVisible(false)}
+        />
+      </View>
     </AlertContext.Provider>
   );
 }

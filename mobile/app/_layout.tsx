@@ -99,7 +99,7 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="login"
-          options={{ presentation: 'modal' }}
+          options={{ animation: 'slide_from_bottom' }}
         />
         <Stack.Screen
           name="edit-profile"
