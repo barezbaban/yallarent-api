@@ -17,10 +17,9 @@ if (nodeEnv !== 'test') {
   app.use(morgan('combined'));
 }
 
-// In production, restrict CORS to allowed origins.
-// In dev/test, allow all origins for convenience.
+// Restrict CORS in production and staging. Open in dev/test only.
 app.use(cors(
-  nodeEnv === 'production' && allowedOrigins.length > 0
+  ['production', 'staging'].includes(nodeEnv) && allowedOrigins.length > 0
     ? { origin: allowedOrigins, methods: ['GET', 'POST', 'PATCH', 'DELETE'] }
     : {}
 ));
