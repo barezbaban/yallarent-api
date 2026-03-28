@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,22 +17,44 @@ import { bookingsApi } from '../../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import { Car, carsApi } from '../../services/api';
+import { Calendar, DateData } from 'react-native-calendars';
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1549317661-bd32c8ce0afa?w=400&q=80';
 const SERVICE_FEE = 10000;
-
-function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function toDateString(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
 function daysBetween(start: Date, end: Date): number {
   return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getMarkedDates(start: Date | null, end: Date | null) {
+  if (!start) return {};
+  const startStr = toDateString(start);
+  if (!end) {
+    return { [startStr]: { startingDay: true, endingDay: true, color: Colors.primary, textColor: '#fff' } };
+  }
+
+  const marks: Record<string, any> = {};
+  const current = new Date(start);
+  const endStr = toDateString(end);
+  while (toDateString(current) <= endStr) {
+    const key = toDateString(current);
+    marks[key] = {
+      color: key === startStr || key === endStr ? Colors.primary : Colors.tealLight,
+      textColor: key === startStr || key === endStr ? '#fff' : Colors.foreground,
+      startingDay: key === startStr,
+      endingDay: key === endStr,
+    };
+    current.setDate(current.getDate() + 1);
+  }
+  return marks;
 }
 
 export default function BookScreen() {
@@ -41,17 +64,23 @@ export default function BookScreen() {
   const [car, setCar] = useState<Car | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectingField, setSelectingField] = useState<'start' | 'end'>('start');
 
-  const today = new Date();
-  const [startDate] = useState(addDays(today, 1));
-  const [endDate] = useState(addDays(today, 4));
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!id) return;
     carsApi.getById(id).then(setCar).catch(() => {}).finally(() => setLoading(false));
   }, [id]);
 
-  const days = useMemo(() => daysBetween(startDate, endDate), [startDate, endDate]);
+  const days = useMemo(
+    () => (startDate && endDate ? daysBetween(startDate, endDate) : 0),
+    [startDate, endDate]
+  );
   const subtotal = car ? car.price_per_day * days : 0;
   const total = subtotal + SERVICE_FEE;
 
@@ -65,7 +94,33 @@ export default function BookScreen() {
 
   if (!car) return null;
 
+  const handleDayPress = (day: DateData) => {
+    const selected = new Date(day.dateString + 'T00:00:00');
+    if (selectingField === 'start') {
+      setStartDate(selected);
+      if (endDate && selected >= endDate) {
+        setEndDate(null);
+      }
+      setSelectingField('end');
+    } else {
+      if (startDate && selected <= startDate) {
+        setStartDate(selected);
+        setEndDate(null);
+        setSelectingField('end');
+      } else {
+        setEndDate(selected);
+        setShowCalendar(false);
+        setSelectingField('start');
+      }
+    }
+  };
+
   const handleConfirm = async () => {
+    if (!startDate || !endDate) {
+      Alert.alert('Select Dates', 'Please select both start and end dates.');
+      return;
+    }
+
     if (!user) {
       Alert.alert('Login Required', 'Please sign up or log in to book a car.', [
         { text: 'Cancel', style: 'cancel' },
@@ -76,8 +131,8 @@ export default function BookScreen() {
 
     setSubmitting(true);
     try {
-      const isoStart = startDate.toISOString().split('T')[0];
-      const isoEnd = endDate.toISOString().split('T')[0];
+      const isoStart = toDateString(startDate);
+      const isoEnd = toDateString(endDate);
       await bookingsApi.create({ carId: car.id, startDate: isoStart, endDate: isoEnd });
       router.replace({
         pathname: '/booking-confirmed',
@@ -97,6 +152,8 @@ export default function BookScreen() {
       setSubmitting(false);
     }
   };
+
+  const datesSelected = startDate && endDate;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -130,52 +187,64 @@ export default function BookScreen() {
         {/* Date Selection */}
         <Text style={styles.sectionTitle}>Select Dates</Text>
         <View style={styles.dateRow}>
-          <View style={[styles.dateBox, styles.dateBoxActive]}>
+          <Pressable
+            style={[styles.dateBox, selectingField === 'start' && showCalendar && styles.dateBoxActive]}
+            onPress={() => { setSelectingField('start'); setShowCalendar(true); }}
+          >
             <Text style={styles.dateLabel}>Start Date</Text>
             <View style={styles.dateValue}>
-              <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
-              <Text style={styles.dateText}>{formatDate(startDate)}</Text>
+              <Ionicons name="calendar-outline" size={16} color={startDate ? Colors.primary : Colors.foregroundMuted} />
+              <Text style={[styles.dateText, !startDate && styles.datePlaceholder]}>
+                {startDate ? formatDate(startDate) : 'Pick date'}
+              </Text>
             </View>
-          </View>
-          <View style={styles.dateBox}>
+          </Pressable>
+          <Pressable
+            style={[styles.dateBox, selectingField === 'end' && showCalendar && styles.dateBoxActive]}
+            onPress={() => { setSelectingField('end'); setShowCalendar(true); }}
+          >
             <Text style={styles.dateLabel}>End Date</Text>
             <View style={styles.dateValue}>
-              <Ionicons name="calendar-outline" size={16} color={Colors.foregroundMuted} />
-              <Text style={styles.dateText}>{formatDate(endDate)}</Text>
+              <Ionicons name="calendar-outline" size={16} color={endDate ? Colors.primary : Colors.foregroundMuted} />
+              <Text style={[styles.dateText, !endDate && styles.datePlaceholder]}>
+                {endDate ? formatDate(endDate) : 'Pick date'}
+              </Text>
             </View>
-          </View>
+          </Pressable>
         </View>
 
         {/* Price Summary */}
-        <View style={styles.priceCard}>
-          <Text style={styles.priceCardTitle}>Price Summary</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>
-              {car.price_per_day.toLocaleString()} IQD × {days} days
-            </Text>
-            <Text style={styles.priceValue}>{subtotal.toLocaleString()} IQD</Text>
+        {datesSelected && (
+          <View style={styles.priceCard}>
+            <Text style={styles.priceCardTitle}>Price Summary</Text>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>
+                {car.price_per_day.toLocaleString()} IQD × {days} days
+              </Text>
+              <Text style={styles.priceValue}>{subtotal.toLocaleString()} IQD</Text>
+            </View>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Service fee</Text>
+              <Text style={styles.priceValue}>{SERVICE_FEE.toLocaleString()} IQD</Text>
+            </View>
+            <View style={[styles.priceRow, styles.totalRow]}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalValue}>{total.toLocaleString()} IQD</Text>
+            </View>
           </View>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Service fee</Text>
-            <Text style={styles.priceValue}>{SERVICE_FEE.toLocaleString()} IQD</Text>
-          </View>
-          <View style={[styles.priceRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{total.toLocaleString()} IQD</Text>
-          </View>
-        </View>
+        )}
       </ScrollView>
 
       {/* Bottom */}
       <View style={styles.bottom}>
         <Pressable
-          style={[styles.confirmButton, submitting && { opacity: 0.6 }]}
+          style={[styles.confirmButton, (!datesSelected || submitting) && { opacity: 0.5 }]}
           onPress={handleConfirm}
-          disabled={submitting}
+          disabled={!datesSelected || submitting}
         >
           <Ionicons name="checkmark-circle-outline" size={20} color={Colors.surfacePrimary} />
           <Text style={styles.confirmButtonText}>
-            {submitting ? 'Booking...' : 'Confirm Booking'}
+            {submitting ? 'Booking...' : datesSelected ? `Confirm Booking • ${total.toLocaleString()} IQD` : 'Select dates to book'}
           </Text>
         </Pressable>
         <View style={styles.noPayment}>
@@ -183,6 +252,36 @@ export default function BookScreen() {
           <Text style={styles.noPaymentText}>No payment required in Phase 1</Text>
         </View>
       </View>
+
+      {/* Calendar Modal */}
+      <Modal visible={showCalendar} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {selectingField === 'start' ? 'Select Start Date' : 'Select End Date'}
+              </Text>
+              <Pressable onPress={() => setShowCalendar(false)}>
+                <Ionicons name="close" size={24} color={Colors.foreground} />
+              </Pressable>
+            </View>
+            <Calendar
+              minDate={toDateString(tomorrow)}
+              markedDates={getMarkedDates(startDate, endDate)}
+              markingType="period"
+              onDayPress={handleDayPress}
+              theme={{
+                todayTextColor: Colors.primary,
+                arrowColor: Colors.primary,
+                textDayFontSize: 15,
+                textMonthFontSize: 16,
+                textMonthFontWeight: '600',
+                textDayHeaderFontSize: 13,
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -278,6 +377,10 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     color: Colors.foreground,
   },
+  datePlaceholder: {
+    color: Colors.foregroundMuted,
+    fontWeight: '400' as const,
+  },
   priceCard: {
     marginTop: Spacing['2xl'],
     borderWidth: 1,
@@ -351,5 +454,28 @@ const styles = StyleSheet.create({
   noPaymentText: {
     fontSize: FontSize.caption,
     color: Colors.foregroundSecondary,
+  },
+  // Calendar Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.surfacePrimary,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Spacing['3xl'],
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  modalTitle: {
+    fontSize: FontSize.sectionHeader,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
   },
 });

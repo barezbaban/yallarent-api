@@ -30,8 +30,12 @@ export default function RootLayout() {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((data: { full_name: string; phone: string; city?: string }) => {
+    setUser((prev) => prev ? { ...prev, ...data } : null);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, token, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, token, login, signup, logout, updateUser }}>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{

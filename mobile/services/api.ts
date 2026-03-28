@@ -77,6 +77,11 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ fullName, phone, password, city }),
     }),
+  updateProfile: (data: { fullName?: string; city?: string }) =>
+    request<{ id: string; full_name: string; phone: string; city?: string }>('/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 };
 
 export const carsApi = {
@@ -91,6 +96,13 @@ export const carsApi = {
   getById: (id: string) => request<Car>(`/cars/${id}`),
 };
 
+export const favoritesApi = {
+  list: () => request<{ id: string; car_id: string; make: string; model: string; year: number; price_per_day: number; city: string; image_url: string | null; company_name: string }[]>('/favorites'),
+  getIds: () => request<string[]>('/favorites/ids'),
+  add: (carId: string) => request<{ message: string }>('/favorites', { method: 'POST', body: JSON.stringify({ carId }) }),
+  remove: (carId: string) => request<{ message: string }>(`/favorites/${carId}`, { method: 'DELETE' }),
+};
+
 export const bookingsApi = {
   list: () => request<Booking[]>('/bookings'),
   create: (data: { carId: string; startDate: string; endDate: string }) =>
@@ -98,4 +110,6 @@ export const bookingsApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  cancel: (id: string) =>
+    request<Booking>(`/bookings/${id}/cancel`, { method: 'PATCH' }),
 };
