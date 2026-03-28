@@ -9,7 +9,7 @@ function authenticate(req, res, next) {
 
   const token = header.split(' ')[1];
   try {
-    const payload = jwt.verify(token, jwtSecret);
+    const payload = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] });
     req.user = payload;
     next();
   } catch {

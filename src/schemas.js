@@ -8,7 +8,10 @@ const phone = z.string().min(1, 'Phone is required').regex(/^\+?[0-9]{7,15}$/, '
 const signup = z.object({
   fullName: z.string().min(1, 'Full name is required').max(100),
   phone,
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
   city: z.string().max(100).optional().default(''),
 });
 

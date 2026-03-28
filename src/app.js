@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { allowedOrigins, nodeEnv } = require('./config/env');
 const authRoutes = require('./routes/authRoutes');
@@ -10,6 +12,11 @@ const favoriteRoutes = require('./routes/favoriteRoutes');
 
 const app = express();
 
+app.use(helmet());
+if (nodeEnv !== 'test') {
+  app.use(morgan('combined'));
+}
+
 // In production, restrict CORS to allowed origins.
 // In dev/test, allow all origins for convenience.
 app.use(cors(
@@ -17,7 +24,7 @@ app.use(cors(
     ? { origin: allowedOrigins, methods: ['GET', 'POST', 'PATCH', 'DELETE'] }
     : {}
 ));
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
 
 // Global rate limit: 100 requests per minute per IP
 const globalLimiter = rateLimit({
