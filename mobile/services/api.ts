@@ -1,4 +1,8 @@
-const API_URL = 'https://yallarent-api-production.up.railway.app/api';
+import Constants from 'expo-constants';
+
+const API_URL =
+  Constants.expoConfig?.extra?.apiUrl ||
+  'https://yallarent-api-production.up.railway.app/api';
 
 let _token: string | null = null;
 
