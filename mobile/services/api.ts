@@ -84,14 +84,24 @@ export const authApi = {
     }),
 };
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export const carsApi = {
-  list: (params?: { city?: string; min_price?: number; max_price?: number }) => {
+  list: (params?: { city?: string; min_price?: number; max_price?: number; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
     if (params?.city) query.set('city', params.city);
     if (params?.min_price) query.set('min_price', String(params.min_price));
     if (params?.max_price) query.set('max_price', String(params.max_price));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();
-    return request<Car[]>(`/cars${qs ? `?${qs}` : ''}`);
+    return request<PaginatedResponse<Car>>(`/cars${qs ? `?${qs}` : ''}`);
   },
   getById: (id: string) => request<Car>(`/cars/${id}`),
 };

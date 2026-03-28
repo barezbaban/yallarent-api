@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+const { allowedOrigins, nodeEnv } = require('./config/env');
 const authRoutes = require('./routes/authRoutes');
 const carRoutes = require('./routes/carRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
@@ -8,8 +10,36 @@ const favoriteRoutes = require('./routes/favoriteRoutes');
 
 const app = express();
 
-app.use(cors());
+// In production, restrict CORS to allowed origins.
+// In dev/test, allow all origins for convenience.
+app.use(cors(
+  nodeEnv === 'production' && allowedOrigins.length > 0
+    ? { origin: allowedOrigins, methods: ['GET', 'POST', 'PATCH', 'DELETE'] }
+    : {}
+));
 app.use(express.json());
+
+// Global rate limit: 100 requests per minute per IP
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+
+// Strict rate limit for auth endpoints: 10 requests per minute per IP
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again later' },
+});
+
+app.use(globalLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/signup', authLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/cars', carRoutes);

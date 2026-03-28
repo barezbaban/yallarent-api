@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing } from '../../constants/theme';
@@ -15,7 +15,7 @@ const FILTERS = ['All Cities', 'SUV', 'Sedan', 'Under 75K'];
 export default function CarsScreen() {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Cities');
-  const { cars, loading, error, refetch } = useCars();
+  const { cars, loading, loadingMore, error, refetch, loadMore, hasMore } = useCars();
 
   const filtered = useMemo(() => {
     let result = cars;
@@ -66,6 +66,11 @@ export default function CarsScreen() {
         renderItem={({ item }) => <CarCard car={item} />}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? <ActivityIndicator style={{ paddingVertical: Spacing.lg }} color={Colors.primary} /> : null
+        }
         ListHeaderComponent={
           <>
             <SearchBar value={search} onChangeText={setSearch} />

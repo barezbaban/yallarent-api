@@ -6,25 +6,29 @@ beforeAll(() => resetDatabase());
 afterAll(() => closeDatabase());
 
 describe('GET /api/cars', () => {
-  it('returns list of cars', async () => {
+  it('returns paginated list of cars', async () => {
     const res = await request(app).get('/api/cars');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThan(0);
+    expect(res.body.total).toBeDefined();
+    expect(res.body.page).toBe(1);
+    expect(res.body.totalPages).toBeDefined();
   });
 
   it('filters by city', async () => {
     const res = await request(app).get('/api/cars?city=Erbil');
     expect(res.status).toBe(200);
-    res.body.forEach((car) => {
+    res.body.data.forEach((car) => {
       expect(car.city).toBe('Erbil');
     });
   });
 
-  it('returns empty array for unknown city', async () => {
+  it('returns empty data for unknown city', async () => {
     const res = await request(app).get('/api/cars?city=UnknownCity');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
+    expect(res.body.data).toEqual([]);
+    expect(res.body.total).toBe(0);
   });
 });
 
