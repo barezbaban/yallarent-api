@@ -2,7 +2,7 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 const API_URLS: Record<string, string> = {
   dev: 'https://yallarent-api-dev.up.railway.app/api',
-  staging: 'https://yallarent-api-staging.up.railway.app/api',
+  stage: 'https://yallarent-api-stage.up.railway.app/api',
   production: 'https://yallarent-api-production.up.railway.app/api',
 };
 
@@ -12,7 +12,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...config,
-    name: env === 'production' ? 'YallaRent' : `YallaRent (${env})`,
+    name: env === 'production' ? 'YallaRent' : env === 'stage' ? 'YallaRent (Stage)' : `YallaRent (Dev)`,
     slug: 'yallarent',
     version: '1.0.0',
     orientation: 'portrait',
