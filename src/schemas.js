@@ -25,10 +25,16 @@ const updateProfile = z.object({
   city: z.string().max(100).optional(),
 });
 
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 const createBooking = z.object({
   carId: uuid,
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be YYYY-MM-DD'),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be YYYY-MM-DD'),
+  pickupTime: z.string().regex(timePattern, 'Time must be HH:MM').optional().default('09:00'),
+  dropoffTime: z.string().regex(timePattern, 'Time must be HH:MM').optional().default('09:00'),
+  pickupLocation: z.string().max(200).optional().default(''),
+  dropoffLocation: z.string().max(200).optional().default(''),
 }).refine((data) => new Date(data.endDate) > new Date(data.startDate), {
   message: 'End date must be after start date',
 });
@@ -53,6 +59,15 @@ const carIdParam = z.object({
   carId: uuid,
 });
 
+const registerDevice = z.object({
+  pushToken: z.string().min(1, 'Push token is required'),
+  platform: z.enum(['ios', 'android']).optional().default('ios'),
+});
+
+const unregisterDevice = z.object({
+  pushToken: z.string().min(1, 'Push token is required'),
+});
+
 module.exports = {
   signup,
   login,
@@ -62,4 +77,6 @@ module.exports = {
   carListQuery,
   uuidParam,
   carIdParam,
+  registerDevice,
+  unregisterDevice,
 };

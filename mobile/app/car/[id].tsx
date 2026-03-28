@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import { Car, carsApi, favoritesApi } from '../../services/api';
 import { useAuth } from '../../services/auth';
+import ImageCarousel from '../../components/ImageCarousel';
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1549317661-bd32c8ce0afa?w=800&q=80';
 
@@ -75,12 +75,15 @@ export default function CarDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Hero Image */}
+        {/* Hero Image Carousel */}
         <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: car.image_url || PLACEHOLDER_IMAGE }}
-            style={styles.heroImage}
-            resizeMode="cover"
+          <ImageCarousel
+            images={
+              car.images && car.images.length > 0
+                ? car.images.map((img) => img.image_url)
+                : [car.image_url || PLACEHOLDER_IMAGE]
+            }
+            height={280}
           />
           <SafeAreaView style={styles.imageOverlay} edges={['top']}>
             <Pressable style={styles.roundButton} onPress={() => router.back()}>
@@ -194,11 +197,6 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-  },
-  heroImage: {
-    width: '100%',
-    height: 280,
-    backgroundColor: Colors.surfaceSecondary,
   },
   imageOverlay: {
     position: 'absolute',

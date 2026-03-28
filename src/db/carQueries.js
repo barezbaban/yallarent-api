@@ -39,12 +39,19 @@ async function findAll({ city, minPrice, maxPrice, page = 1, limit = 20 } = {}) 
 
 async function findById(id) {
   const { rows } = await pool.query(
-    `SELECT c.*, co.name AS company_name, co.city AS company_city, co.phone AS company_phone
+    `SELECT c.*, co.name AS company_name, co.city AS company_city, co.phone AS company_phone, co.address AS company_address
      FROM cars c
      JOIN companies co ON c.company_id = co.id
      WHERE c.id = $1`,
     [id]
   );
+  if (!rows[0]) return null;
+
+  const { rows: imageRows } = await pool.query(
+    `SELECT id, image_url, display_order FROM car_images WHERE car_id = $1 ORDER BY display_order`,
+    [id]
+  );
+  rows[0].images = imageRows;
   return rows[0];
 }
 

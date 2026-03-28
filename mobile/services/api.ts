@@ -28,6 +28,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export interface CarImage {
+  id: string;
+  image_url: string;
+  display_order: number;
+}
+
 export interface Car {
   id: string;
   company_id: string;
@@ -43,6 +49,8 @@ export interface Car {
   company_name: string;
   company_city: string;
   company_phone?: string;
+  company_address?: string;
+  images?: CarImage[];
 }
 
 export interface Booking {
@@ -52,6 +60,10 @@ export interface Booking {
   start_date: string;
   end_date: string;
   total_price: number;
+  pickup_time?: string;
+  dropoff_time?: string;
+  pickup_location?: string;
+  dropoff_location?: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   created_at: string;
   make?: string;
@@ -113,9 +125,16 @@ export const favoritesApi = {
   remove: (carId: string) => request<{ message: string }>(`/favorites/${carId}`, { method: 'DELETE' }),
 };
 
+export const devicesApi = {
+  register: (pushToken: string, platform: string = 'ios') =>
+    request<{ id: string }>('/devices', { method: 'POST', body: JSON.stringify({ pushToken, platform }) }),
+  unregister: (pushToken: string) =>
+    request<{ message: string }>('/devices', { method: 'DELETE', body: JSON.stringify({ pushToken }) }),
+};
+
 export const bookingsApi = {
   list: () => request<Booking[]>('/bookings'),
-  create: (data: { carId: string; startDate: string; endDate: string }) =>
+  create: (data: { carId: string; startDate: string; endDate: string; pickupTime?: string; dropoffTime?: string; pickupLocation?: string; dropoffLocation?: string }) =>
     request<Booking>('/bookings', {
       method: 'POST',
       body: JSON.stringify(data),

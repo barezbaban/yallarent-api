@@ -18,6 +18,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import { Car, carsApi } from '../../services/api';
 import { Calendar, DateData } from 'react-native-calendars';
+import TimePicker, { to12h } from '../../components/TimePicker';
+import LocationPicker from '../../components/LocationPicker';
+import { scheduleBookingNotification } from '../../services/notifications';
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1549317661-bd32c8ce0afa?w=400&q=80';
 const SERVICE_FEE = 10000;
@@ -72,6 +75,14 @@ export default function BookScreen() {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [pickupTime, setPickupTime] = useState('09:00');
+  const [dropoffTime, setDropoffTime] = useState('09:00');
+  const [showPickupTime, setShowPickupTime] = useState(false);
+  const [showDropoffTime, setShowDropoffTime] = useState(false);
+  const [pickupLocation, setPickupLocation] = useState('');
+  const [dropoffLocation, setDropoffLocation] = useState('');
+  const [showPickupLocation, setShowPickupLocation] = useState(false);
+  const [showDropoffLocation, setShowDropoffLocation] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -139,7 +150,18 @@ export default function BookScreen() {
     try {
       const isoStart = toDateString(startDate);
       const isoEnd = toDateString(endDate);
-      await bookingsApi.create({ carId: car.id, startDate: isoStart, endDate: isoEnd });
+      const effectivePickup = pickupLocation || `${car.company_name}, ${car.city}`;
+      const effectiveDropoff = dropoffLocation || `${car.company_name}, ${car.city}`;
+      await bookingsApi.create({
+        carId: car.id,
+        startDate: isoStart,
+        endDate: isoEnd,
+        pickupTime,
+        dropoffTime,
+        pickupLocation: effectivePickup,
+        dropoffLocation: effectiveDropoff,
+      });
+      scheduleBookingNotification(`${car.make} ${car.model}`).catch(() => {});
       router.replace({
         pathname: '/booking-confirmed',
         params: {
@@ -148,7 +170,10 @@ export default function BookScreen() {
           startDate: formatDate(startDate),
           endDate: formatDate(endDate),
           days: String(days),
-          pickup: `${car.company_name}, ${car.city}`,
+          pickup: effectivePickup,
+          dropoff: effectiveDropoff,
+          pickupTime: to12h(pickupTime),
+          dropoffTime: to12h(dropoffTime),
           total: String(total),
         },
       });
@@ -219,6 +244,48 @@ export default function BookScreen() {
           </Pressable>
         </View>
 
+        {/* Select Times */}
+        <Text style={styles.sectionTitle}>Select Times</Text>
+        <View style={styles.dateRow}>
+          <Pressable style={styles.dateBox} onPress={() => setShowPickupTime(true)}>
+            <Text style={styles.dateLabel}>Pickup Time</Text>
+            <View style={styles.dateValue}>
+              <Ionicons name="time-outline" size={16} color={Colors.primary} />
+              <Text style={styles.dateText}>{to12h(pickupTime)}</Text>
+            </View>
+          </Pressable>
+          <Pressable style={styles.dateBox} onPress={() => setShowDropoffTime(true)}>
+            <Text style={styles.dateLabel}>Dropoff Time</Text>
+            <View style={styles.dateValue}>
+              <Ionicons name="time-outline" size={16} color={Colors.primary} />
+              <Text style={styles.dateText}>{to12h(dropoffTime)}</Text>
+            </View>
+          </Pressable>
+        </View>
+
+        {/* Pickup & Dropoff Locations */}
+        <Text style={styles.sectionTitle}>Pickup & Dropoff</Text>
+        <Pressable style={styles.locationBox} onPress={() => setShowPickupLocation(true)}>
+          <Ionicons name="location" size={20} color={Colors.primary} />
+          <View style={styles.locationInfo}>
+            <Text style={styles.dateLabel}>Pickup Location</Text>
+            <Text style={styles.locationText}>
+              {pickupLocation || `${car.company_name}, ${car.city}`}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.foregroundMuted} />
+        </Pressable>
+        <Pressable style={[styles.locationBox, { marginTop: Spacing.sm }]} onPress={() => setShowDropoffLocation(true)}>
+          <Ionicons name="location-outline" size={20} color={Colors.foregroundSecondary} />
+          <View style={styles.locationInfo}>
+            <Text style={styles.dateLabel}>Dropoff Location</Text>
+            <Text style={styles.locationText}>
+              {dropoffLocation || `${car.company_name}, ${car.city}`}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.foregroundMuted} />
+        </Pressable>
+
         {/* Price Summary */}
         {datesSelected && (
           <View style={styles.priceCard}>
@@ -258,6 +325,40 @@ export default function BookScreen() {
           <Text style={styles.noPaymentText}>No payment required in Phase 1</Text>
         </View>
       </View>
+
+      {/* Time Pickers */}
+      <TimePicker
+        visible={showPickupTime}
+        title="Pickup Time"
+        selectedTime={pickupTime}
+        onSelect={setPickupTime}
+        onClose={() => setShowPickupTime(false)}
+      />
+      <TimePicker
+        visible={showDropoffTime}
+        title="Dropoff Time"
+        selectedTime={dropoffTime}
+        onSelect={setDropoffTime}
+        onClose={() => setShowDropoffTime(false)}
+      />
+
+      {/* Location Pickers */}
+      <LocationPicker
+        visible={showPickupLocation}
+        title="Pickup Location"
+        companyAddress={car.company_address || `${car.company_name}, ${car.city}`}
+        selectedLocation={pickupLocation}
+        onSelect={setPickupLocation}
+        onClose={() => setShowPickupLocation(false)}
+      />
+      <LocationPicker
+        visible={showDropoffLocation}
+        title="Dropoff Location"
+        companyAddress={car.company_address || `${car.company_name}, ${car.city}`}
+        selectedLocation={dropoffLocation}
+        onSelect={setDropoffLocation}
+        onClose={() => setShowDropoffLocation(false)}
+      />
 
       {/* Calendar Modal */}
       <Modal visible={showCalendar} animationType="slide" transparent>
@@ -386,6 +487,24 @@ const styles = StyleSheet.create({
   datePlaceholder: {
     color: Colors.foregroundMuted,
     fontWeight: '400' as const,
+  },
+  locationBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.button,
+    padding: Spacing.md,
+  },
+  locationInfo: {
+    flex: 1,
+  },
+  locationText: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+    marginTop: 2,
   },
   priceCard: {
     marginTop: Spacing['2xl'],
