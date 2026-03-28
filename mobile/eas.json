@@ -1,10 +1,26 @@
 {
   "cli": {
-    "version": ">= 15.0.0"
+    "version": ">= 15.0.0",
+    "appVersionSource": "local"
   },
   "build": {
-    "preview": {
+    "dev": {
       "distribution": "internal",
+      "env": {
+        "APP_ENV": "dev"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "stage": {
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "stage"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -13,7 +29,10 @@
       }
     },
     "production": {
-      "distribution": "store"
+      "distribution": "store",
+      "env": {
+        "APP_ENV": "production"
+      }
     }
   }
 }
