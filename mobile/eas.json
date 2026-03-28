@@ -16,10 +16,10 @@
         "simulator": true
       }
     },
-    "staging": {
+    "stage": {
       "distribution": "internal",
       "env": {
-        "APP_ENV": "staging"
+        "APP_ENV": "stage"
       },
       "android": {
         "buildType": "apk"
