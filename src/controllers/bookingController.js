@@ -3,7 +3,7 @@ const carQueries = require('../db/carQueries');
 
 async function create(req, res) {
   try {
-    const { carId, startDate, endDate } = req.body;
+    const { carId, startDate, endDate, pickupTime, dropoffTime, pickupLocation, dropoffLocation } = req.body;
     const renterId = req.user.id;
 
     const car = await carQueries.findById(carId);
@@ -21,6 +21,10 @@ async function create(req, res) {
       startDate,
       endDate,
       totalPrice,
+      pickupTime,
+      dropoffTime,
+      pickupLocation: pickupLocation || `${car.company_name}, ${car.company_city}`,
+      dropoffLocation: dropoffLocation || `${car.company_name}, ${car.company_city}`,
     });
 
     if (result.conflict) {

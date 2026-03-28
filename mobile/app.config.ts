@@ -37,7 +37,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     web: {
       bundler: 'metro' as const,
     },
-    plugins: ['expo-router'],
+    plugins: [
+      'expo-router',
+      [
+        'expo-notifications',
+        {
+          sounds: [],
+        },
+      ],
+    ],
     extra: {
       apiUrl,
       appEnv: env,

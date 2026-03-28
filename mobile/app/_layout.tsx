@@ -6,10 +6,12 @@ import { Colors } from '../constants/theme';
 import { AuthContext } from '../services/auth';
 import { authApi, setAuthToken } from '../services/api';
 import { AlertProvider } from '../services/alert';
+import { registerForPushNotifications, unregisterPushNotifications } from '../services/notifications';
 import type { User } from '../services/auth';
 
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
+const PUSH_TOKEN_KEY = 'push_token';
 
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
@@ -26,6 +28,10 @@ export default function RootLayout() {
           setAuthToken(storedToken);
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
+          // Re-register push token on app launch
+          registerForPushNotifications().then(async (pt) => {
+            if (pt) await SecureStore.setItemAsync(PUSH_TOKEN_KEY, pt);
+          }).catch(() => {});
         }
       } catch {}
       setIsReady(true);
@@ -39,6 +45,9 @@ export default function RootLayout() {
     setUser(res.user);
     await SecureStore.setItemAsync(TOKEN_KEY, res.token);
     await SecureStore.setItemAsync(USER_KEY, JSON.stringify(res.user));
+    // Register for push notifications after login
+    const pushToken = await registerForPushNotifications();
+    if (pushToken) await SecureStore.setItemAsync(PUSH_TOKEN_KEY, pushToken);
   }, []);
 
   const signup = useCallback(async (fullName: string, phone: string, password: string, city: string) => {
@@ -48,9 +57,16 @@ export default function RootLayout() {
     setUser(res.user);
     await SecureStore.setItemAsync(TOKEN_KEY, res.token);
     await SecureStore.setItemAsync(USER_KEY, JSON.stringify(res.user));
+    const pushToken = await registerForPushNotifications();
+    if (pushToken) await SecureStore.setItemAsync(PUSH_TOKEN_KEY, pushToken);
   }, []);
 
   const logout = useCallback(async () => {
+    const pushToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
+    if (pushToken) {
+      await unregisterPushNotifications(pushToken);
+      await SecureStore.deleteItemAsync(PUSH_TOKEN_KEY);
+    }
     setAuthToken(null);
     setToken(null);
     setUser(null);
@@ -83,6 +99,10 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="splash"
+          options={{ animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="onboarding"
           options={{ animation: 'fade' }}
         />
         <Stack.Screen

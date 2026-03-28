@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-async function create({ carId, renterId, startDate, endDate, totalPrice }) {
+async function create({ carId, renterId, startDate, endDate, totalPrice, pickupTime = '09:00', dropoffTime = '09:00', pickupLocation = '', dropoffLocation = '' }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -28,10 +28,10 @@ async function create({ carId, renterId, startDate, endDate, totalPrice }) {
     }
 
     const { rows } = await client.query(
-      `INSERT INTO bookings (car_id, renter_id, start_date, end_date, total_price)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO bookings (car_id, renter_id, start_date, end_date, total_price, pickup_time, dropoff_time, pickup_location, dropoff_location)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [carId, renterId, startDate, endDate, totalPrice]
+      [carId, renterId, startDate, endDate, totalPrice, pickupTime, dropoffTime, pickupLocation, dropoffLocation]
     );
     await client.query('COMMIT');
     return { conflict: false, booking: rows[0] };
