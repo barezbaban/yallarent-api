@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Colors } from '../constants/theme';
 import { AuthContext } from '../services/auth';
 import { authApi, setAuthToken } from '../services/api';
+import { AlertProvider } from '../services/alert';
 import type { User } from '../services/auth';
 
 const TOKEN_KEY = 'auth_token';
@@ -70,6 +71,7 @@ export default function RootLayout() {
   if (!isReady) return null;
 
   return (
+    <AlertProvider>
     <AuthContext.Provider value={{ user, token, login, signup, logout, updateUser }}>
       <StatusBar style="dark" />
       <Stack
@@ -109,5 +111,6 @@ export default function RootLayout() {
         />
       </Stack>
     </AuthContext.Provider>
+    </AlertProvider>
   );
 }

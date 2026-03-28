@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,12 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 import { useAuth } from '../services/auth';
+import { useAlert } from '../services/alert';
 
 type Tab = 'login' | 'signup';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, signup } = useAuth();
+  const { showAlert } = useAlert();
   const [tab, setTab] = useState<Tab>('login');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -30,11 +31,11 @@ export default function LoginScreen() {
 
   const handleSubmit = async () => {
     if (!phone || !password) {
-      Alert.alert('Error', 'Phone and password are required');
+      showAlert({ title: 'Missing Fields', message: 'Phone and password are required', type: 'warning' });
       return;
     }
     if (tab === 'signup' && !fullName) {
-      Alert.alert('Error', 'Full name is required');
+      showAlert({ title: 'Missing Fields', message: 'Full name is required', type: 'warning' });
       return;
     }
 
@@ -47,7 +48,7 @@ export default function LoginScreen() {
       }
       router.back();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Something went wrong');
+      showAlert({ title: 'Error', message: err.message || 'Something went wrong', type: 'error' });
     } finally {
       setLoading(false);
     }

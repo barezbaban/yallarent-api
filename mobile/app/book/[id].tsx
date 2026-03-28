@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   Pressable,
@@ -13,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../services/auth';
+import { useAlert } from '../../services/alert';
 import { bookingsApi } from '../../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
@@ -61,6 +61,7 @@ export default function BookScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [car, setCar] = useState<Car | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -117,15 +118,20 @@ export default function BookScreen() {
 
   const handleConfirm = async () => {
     if (!startDate || !endDate) {
-      Alert.alert('Select Dates', 'Please select both start and end dates.');
+      showAlert({ title: 'Select Dates', message: 'Please select both start and end dates.', type: 'warning' });
       return;
     }
 
     if (!user) {
-      Alert.alert('Login Required', 'Please sign up or log in to book a car.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Log In', onPress: () => router.push('/login') },
-      ]);
+      showAlert({
+        title: 'Login Required',
+        message: 'Please sign up or log in to book a car.',
+        type: 'confirm',
+        buttons: [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Log In', onPress: () => router.push('/login') },
+        ],
+      });
       return;
     }
 
@@ -147,7 +153,7 @@ export default function BookScreen() {
         },
       });
     } catch (err: any) {
-      Alert.alert('Booking Failed', err.message || 'Something went wrong');
+      showAlert({ title: 'Booking Failed', message: err.message || 'Something went wrong', type: 'error' });
     } finally {
       setSubmitting(false);
     }

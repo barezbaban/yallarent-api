@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,12 +8,14 @@ import FilterChips from '../../components/FilterChips';
 import BookingCard from '../../components/BookingCard';
 import { bookingsApi, Booking } from '../../services/api';
 import { useAuth } from '../../services/auth';
+import { useAlert } from '../../services/alert';
 
 const TABS = ['All', 'Upcoming', 'Past'];
 
 export default function BookingsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState('All');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,21 +86,26 @@ export default function BookingsScreen() {
               totalPrice={item.total_price}
               status={item.status}
               onCancel={() => {
-                Alert.alert('Cancel Booking', 'Are you sure you want to cancel this booking?', [
-                  { text: 'No', style: 'cancel' },
-                  {
-                    text: 'Yes, Cancel',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        await bookingsApi.cancel(item.id);
-                        fetchBookings();
-                      } catch {
-                        Alert.alert('Error', 'Failed to cancel booking');
-                      }
+                showAlert({
+                  title: 'Cancel Booking',
+                  message: 'Are you sure you want to cancel this booking?',
+                  type: 'confirm',
+                  buttons: [
+                    { text: 'No', style: 'cancel' },
+                    {
+                      text: 'Yes, Cancel',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await bookingsApi.cancel(item.id);
+                          fetchBookings();
+                        } catch {
+                          showAlert({ title: 'Error', message: 'Failed to cancel booking', type: 'error' });
+                        }
+                      },
                     },
-                  },
-                ]);
+                  ],
+                });
               }}
             />
           )}
