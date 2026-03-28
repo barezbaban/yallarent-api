@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "YallaRent",
+    "slug": "yallarent",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "yallarent",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#0F2B46"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F2B46"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router"]
+  }
+}
