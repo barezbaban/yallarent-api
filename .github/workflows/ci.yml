@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api:
+    name: Backend API
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: yallarent_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run migrations
+        run: psql -f migrations/001_create_tables.sql
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGDATABASE: yallarent_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+
+      - name: Seed database
+        run: psql -f seed/seed.sql
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGDATABASE: yallarent_test
+          PGUSER: postgres
+          PGPASSWORD: postgres
+
+      - name: Health check
+        run: |
+          node src/index.js &
+          sleep 3
+          curl -f http://localhost:3000/api/health
+          curl -f http://localhost:3000/api/cars
+        env:
+          PORT: 3000
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/yallarent_test
+          JWT_SECRET: ci-test-secret
+          NODE_ENV: test
+
+  mobile:
+    name: Mobile App
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: Type check
+        working-directory: mobile
+        run: npx tsc --noEmit
