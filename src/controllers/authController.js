@@ -66,4 +66,15 @@ async function me(req, res) {
   }
 }
 
-module.exports = { signup, login, me };
+async function updateProfile(req, res) {
+  try {
+    const { fullName, city } = req.body;
+    const user = await userQueries.update(req.user.id, { fullName, city });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+}
+
+module.exports = { signup, login, me, updateProfile };

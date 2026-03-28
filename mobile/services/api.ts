@@ -77,6 +77,11 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ fullName, phone, password, city }),
     }),
+  updateProfile: (data: { fullName?: string; city?: string }) =>
+    request<{ id: string; full_name: string; phone: string; city?: string }>('/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 };
 
 export const carsApi = {

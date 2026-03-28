@@ -21,4 +21,14 @@ async function findById(id) {
   return rows[0];
 }
 
-module.exports = { findByPhone, create, findById };
+async function update(id, { fullName, city }) {
+  const { rows } = await pool.query(
+    `UPDATE users SET full_name = COALESCE($2, full_name), city = COALESCE($3, city)
+     WHERE id = $1
+     RETURNING id, full_name, phone, city, created_at`,
+    [id, fullName, city]
+  );
+  return rows[0];
+}
+
+module.exports = { findByPhone, create, findById, update };

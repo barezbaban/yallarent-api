@@ -61,7 +61,7 @@ export default function ProfileScreen() {
       <Text style={styles.title}>Profile</Text>
 
       {/* User Info */}
-      <View style={styles.userCard}>
+      <Pressable style={styles.userCard} onPress={() => router.push('/edit-profile')}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
@@ -70,7 +70,8 @@ export default function ProfileScreen() {
           <Text style={styles.userPhone}>{user.phone}</Text>
           {user.city && <Text style={styles.userCity}>{user.city}</Text>}
         </View>
-      </View>
+        <Ionicons name="create-outline" size={20} color={Colors.foregroundMuted} />
+      </Pressable>
 
       {/* Menu */}
       <View style={styles.menu}>
