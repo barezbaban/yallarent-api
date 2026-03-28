@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userQueries = require('../db/userQueries');
@@ -13,13 +14,13 @@ async function signup(req, res) {
 
     const existing = await userQueries.findByPhone(phone);
     if (existing) {
-      return res.status(409).json({ error: 'Phone number already registered' });
+      return res.status(409).json({ error: 'Unable to create account with this phone number' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await userQueries.create({ fullName, phone, passwordHash, city });
 
-    const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
+    const token = jwt.sign({ id: user.id, role: 'user', jti: crypto.randomUUID() }, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
 
     res.status(201).json({ user, token });
   } catch (err) {
@@ -40,12 +41,22 @@ async function login(req, res) {
       return res.status(401).json({ error: 'Invalid phone or password' });
     }
 
+    // Check account lockout
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minutes = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+      return res.status(429).json({ error: `Account locked. Try again in ${minutes} minute(s)` });
+    }
+
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
+      await userQueries.incrementFailedAttempts(phone);
       return res.status(401).json({ error: 'Invalid phone or password' });
     }
 
-    const token = jwt.sign({ id: user.id }, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
+    // Reset failed attempts on successful login
+    await userQueries.resetFailedAttempts(phone);
+
+    const token = jwt.sign({ id: user.id, role: 'user', jti: crypto.randomUUID() }, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
 
     res.json({
       user: { id: user.id, full_name: user.full_name, phone: user.phone, city: user.city },
