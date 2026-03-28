@@ -91,6 +91,13 @@ export const carsApi = {
   getById: (id: string) => request<Car>(`/cars/${id}`),
 };
 
+export const favoritesApi = {
+  list: () => request<{ id: string; car_id: string; make: string; model: string; year: number; price_per_day: number; city: string; image_url: string | null; company_name: string }[]>('/favorites'),
+  getIds: () => request<string[]>('/favorites/ids'),
+  add: (carId: string) => request<{ message: string }>('/favorites', { method: 'POST', body: JSON.stringify({ carId }) }),
+  remove: (carId: string) => request<{ message: string }>(`/favorites/${carId}`, { method: 'DELETE' }),
+};
+
 export const bookingsApi = {
   list: () => request<Booking[]>('/bookings'),
   create: (data: { carId: string; startDate: string; endDate: string }) =>

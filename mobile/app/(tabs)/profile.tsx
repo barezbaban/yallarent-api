@@ -75,7 +75,7 @@ export default function ProfileScreen() {
       {/* Menu */}
       <View style={styles.menu}>
         <MenuItem icon="car-outline" label="My Bookings" onPress={() => router.push('/(tabs)/bookings')} />
-        <MenuItem icon="heart-outline" label="Favorites" />
+        <MenuItem icon="heart-outline" label="Favorites" onPress={() => router.push('/favorites')} />
         <MenuItem icon="notifications-outline" label="Notifications" />
         <MenuItem icon="settings-outline" label="Settings" />
         <MenuItem icon="help-circle-outline" label="Help & Support" />

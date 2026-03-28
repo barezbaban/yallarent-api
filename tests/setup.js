@@ -1,6 +1,7 @@
 const pool = require('../src/config/db');
 
 async function resetDatabase() {
+  await pool.query('DELETE FROM favorites');
   await pool.query('DELETE FROM bookings');
   await pool.query('DELETE FROM cars');
   await pool.query('DELETE FROM users');
