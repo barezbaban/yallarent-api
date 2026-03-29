@@ -50,4 +50,14 @@ async function resetFailedAttempts(phone) {
   );
 }
 
-module.exports = { findByPhone, create, findById, update, incrementFailedAttempts, resetFailedAttempts };
+async function updatePassword(phone, passwordHash) {
+  const { rows } = await pool.query(
+    `UPDATE users SET password_hash = $2, failed_login_attempts = 0, locked_until = NULL
+     WHERE phone = $1
+     RETURNING id, full_name, phone, city`,
+    [phone, passwordHash]
+  );
+  return rows[0];
+}
+
+module.exports = { findByPhone, create, findById, update, incrementFailedAttempts, resetFailedAttempts, updatePassword };

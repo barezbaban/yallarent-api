@@ -122,6 +122,18 @@ export default function RootLayout() {
           options={{ animation: 'slide_from_bottom' }}
         />
         <Stack.Screen
+          name="forgot-password"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="verify-otp"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="reset-password"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
           name="edit-profile"
           options={{ animation: 'slide_from_right' }}
         />
