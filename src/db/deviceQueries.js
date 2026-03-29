@@ -26,4 +26,11 @@ async function findByUserId(userId) {
   return rows;
 }
 
-module.exports = { register, unregister, findByUserId };
+async function findAllTokens() {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT push_token FROM user_devices`
+  );
+  return rows.map(r => r.push_token);
+}
+
+module.exports = { register, unregister, findByUserId, findAllTokens };
