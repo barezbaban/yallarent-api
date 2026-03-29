@@ -13,26 +13,31 @@ Notifications.setNotificationHandler({
 });
 
 export async function registerForPushNotifications(): Promise<string | null> {
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
 
-  if (finalStatus !== 'granted') {
+    if (finalStatus !== 'granted') {
+      return null;
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const token = tokenData.data;
+
+    try {
+      await devicesApi.register(token, Platform.OS);
+    } catch {}
+
+    return token;
+  } catch {
+    // Firebase/FCM not configured — skip push registration silently
     return null;
   }
-
-  const tokenData = await Notifications.getExpoPushTokenAsync();
-  const token = tokenData.data;
-
-  try {
-    await devicesApi.register(token, Platform.OS);
-  } catch {}
-
-  return token;
 }
 
 export async function unregisterPushNotifications(pushToken: string) {
@@ -42,12 +47,16 @@ export async function unregisterPushNotifications(pushToken: string) {
 }
 
 export async function scheduleBookingNotification(carName: string) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Booking Confirmed!',
-      body: `Your ${carName} is reserved. Check your bookings for details.`,
-      sound: true,
-    },
-    trigger: null, // fires immediately
-  });
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Booking Confirmed!',
+        body: `Your ${carName} is reserved. Check your bookings for details.`,
+        sound: true,
+      },
+      trigger: null,
+    });
+  } catch {
+    // Notifications not available — skip silently
+  }
 }
