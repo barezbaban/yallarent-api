@@ -13,7 +13,6 @@ const FAQ_KEYS = [
   { q: 'help.faqQ4', a: 'help.faqA4' },
   { q: 'help.faqQ5', a: 'help.faqA5' },
   { q: 'help.faqQ6', a: 'help.faqA6' },
-  },
 ];
 
 function FAQItem({ q, a }: { q: string; a: string }) {

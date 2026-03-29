@@ -9,6 +9,25 @@
       "client_info": {
         "mobilesdk_app_id": "1:1085917415544:android:ea4e346fa9a3c51486c58d",
         "android_client_info": {
+          "package_name": "com.yallarent.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsXi8jyjkpOsc_LZv-iueAhoCXChDSP1c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1085917415544:android:ea4e346fa9a3c51486c58d",
+        "android_client_info": {
           "package_name": "com.yallarent.app.dev"
         }
       },
