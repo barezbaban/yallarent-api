@@ -14,7 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: env === 'production' ? 'YallaRent' : env === 'stage' ? 'YallaRent (Stage)' : `YallaRent (Dev)`,
     slug: 'yallarent',
-    version: '1.0.0',
+    version: '1.1.0',
     orientation: 'portrait',
     scheme: 'yallarent',
     userInterfaceStyle: 'light',
