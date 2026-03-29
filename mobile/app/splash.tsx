@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { Colors, FontWeight, Spacing } from '../constants/theme';
+import { t } from '../services/i18n';
 
 const ONBOARDING_KEY = 'onboarding_complete';
 
@@ -27,8 +28,8 @@ export default function SplashScreen() {
       <View style={styles.iconBox}>
         <Ionicons name="car" size={44} color={Colors.surfacePrimary} />
       </View>
-      <Text style={styles.title}>YallaRent</Text>
-      <Text style={styles.tagline}>Rent a car. Anytime. Anywhere.</Text>
+      <Text style={styles.title}>{t('splash.title')}</Text>
+      <Text style={styles.tagline}>{t('splash.tagline')}</Text>
     </View>
   );
 }

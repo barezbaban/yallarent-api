@@ -3,31 +3,16 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
+import { t } from '../services/i18n';
+import { useLanguage } from '../services/language';
 
-const FAQ = [
-  {
-    q: 'How do I book a car?',
-    a: 'Browse available cars on the home screen, tap on one you like, select your dates, times, and pickup/dropoff locations, then confirm your booking.',
-  },
-  {
-    q: 'How do I cancel a booking?',
-    a: 'Go to the Bookings tab, find the booking you want to cancel, and tap the Cancel button. Cancellations are subject to the rental company\'s policy.',
-  },
-  {
-    q: 'What payment methods are accepted?',
-    a: 'Payment is handled directly with the rental company. Most companies accept cash (IQD) at pickup. Contact the company for other payment options.',
-  },
-  {
-    q: 'How do I contact the rental company?',
-    a: 'On the car detail page, you\'ll find the company name and contact information. You can call them directly for any questions.',
-  },
-  {
-    q: 'Can I modify my booking?',
-    a: 'Currently, you need to cancel the existing booking and create a new one with the updated details. We\'re working on adding direct modification.',
-  },
-  {
-    q: 'What if the car is not as described?',
-    a: 'Contact the rental company directly. If the issue is not resolved, reach out to our support team and we\'ll help mediate.',
+const FAQ_KEYS = [
+  { q: 'help.faqQ1', a: 'help.faqA1' },
+  { q: 'help.faqQ2', a: 'help.faqA2' },
+  { q: 'help.faqQ3', a: 'help.faqA3' },
+  { q: 'help.faqQ4', a: 'help.faqA4' },
+  { q: 'help.faqQ5', a: 'help.faqA5' },
+  { q: 'help.faqQ6', a: 'help.faqA6' },
   },
 ];
 
@@ -57,6 +42,8 @@ function ContactRow({ icon, label, value, onPress }: { icon: string; label: stri
 
 export default function HelpScreen() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const FAQ = FAQ_KEYS.map((item) => ({ q: t(item.q), a: t(item.a) }));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -64,36 +51,36 @@ export default function HelpScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.foreground} />
         </Pressable>
-        <Text style={styles.headerTitle}>Help & Support</Text>
+        <Text style={styles.headerTitle}>{t('help.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Contact Section */}
-        <Text style={styles.sectionTitle}>Contact Us</Text>
+        <Text style={styles.sectionTitle}>{t('help.contactUs')}</Text>
         <View style={styles.section}>
           <ContactRow
             icon="call-outline"
-            label="Phone"
+            label={t('help.phone')}
             value="+964 750 000 0000"
             onPress={() => Linking.openURL('tel:+9647500000000')}
           />
           <ContactRow
             icon="logo-whatsapp"
-            label="WhatsApp"
+            label={t('help.whatsapp')}
             value="+964 750 000 0000"
             onPress={() => Linking.openURL('https://wa.me/9647500000000')}
           />
           <ContactRow
             icon="mail-outline"
-            label="Email"
+            label={t('help.email')}
             value="support@yallarent.com"
             onPress={() => Linking.openURL('mailto:support@yallarent.com')}
           />
         </View>
 
         {/* FAQ Section */}
-        <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+        <Text style={styles.sectionTitle}>{t('help.faq')}</Text>
         <View style={styles.faqSection}>
           {FAQ.map((item, i) => (
             <FAQItem key={i} q={item.q} a={item.a} />
@@ -102,8 +89,8 @@ export default function HelpScreen() {
 
         {/* App Info */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>YallaRent v1.1.0</Text>
-          <Text style={styles.footerText}>Made with love in Iraq</Text>
+          <Text style={styles.footerText}>{t('help.footerVersion')}</Text>
+          <Text style={styles.footerText}>{t('help.footerCredit')}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

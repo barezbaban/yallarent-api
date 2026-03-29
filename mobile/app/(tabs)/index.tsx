@@ -8,19 +8,21 @@ import { Colors, FontSize, FontWeight, Spacing } from '../../constants/theme';
 import { useCars } from '../../hooks/useCars';
 import { notificationsApi } from '../../services/api';
 import { useAuth } from '../../services/auth';
+import { t } from '../../services/i18n';
+import { useLanguage } from '../../services/language';
 import CarCard from '../../components/CarCard';
 import CarCardSkeleton from '../../components/CarCardSkeleton';
 import SearchBar from '../../components/SearchBar';
 import FilterChips from '../../components/FilterChips';
 import ErrorState from '../../components/ErrorState';
 
-const FILTERS = ['All Cities', 'SUV', 'Sedan', 'Under 75K'];
-
 export default function CarsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const FILTERS = [t('search.allCities'), t('search.suv'), t('search.sedan'), t('search.under75k')];
   const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState('All Cities');
+  const [activeFilter, setActiveFilter] = useState(FILTERS[0]);
   const [unreadCount, setUnreadCount] = useState(0);
   const { cars, loading, loadingMore, error, refetch, loadMore, hasMore } = useCars();
 
@@ -46,9 +48,9 @@ export default function CarsScreen() {
       );
     }
 
-    if (activeFilter === 'Under 75K') {
+    if (activeFilter === t('search.under75k')) {
       result = result.filter((c) => c.price_per_day < 75000);
-    } else if (activeFilter !== 'All Cities') {
+    } else if (activeFilter !== t('search.allCities')) {
       const q = activeFilter.toLowerCase();
       result = result.filter(
         (c) =>
@@ -71,7 +73,7 @@ export default function CarsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.logo}>YallaRent</Text>
+        <Text style={styles.logo}>{t('home.logo')}</Text>
         <Pressable onPress={() => router.push('/notifications')} style={styles.bellBtn}>
           <Ionicons name="notifications-outline" size={26} color={Colors.foreground} />
           {unreadCount > 0 && (
@@ -104,9 +106,9 @@ export default function CarsScreen() {
               onSelect={setActiveFilter}
             />
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Available Cars</Text>
+              <Text style={styles.sectionTitle}>{t('home.availableCars')}</Text>
               <Text style={styles.count}>
-                {loading ? '...' : `${filtered.length} cars`}
+                {loading ? '...' : `${filtered.length} ${t('home.cars')}`}
               </Text>
             </View>
           </>
@@ -120,7 +122,7 @@ export default function CarsScreen() {
             </View>
           ) : (
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No cars found</Text>
+              <Text style={styles.emptyText}>{t('home.noCars')}</Text>
             </View>
           )
         }
