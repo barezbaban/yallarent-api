@@ -11,6 +11,7 @@ const companyRoutes = require('./routes/companyRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const deviceRoutes = require('./routes/deviceRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
@@ -56,6 +57,7 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/devices', deviceRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

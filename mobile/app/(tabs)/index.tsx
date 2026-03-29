@@ -1,9 +1,13 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors, FontSize, FontWeight, Spacing } from '../../constants/theme';
 import { useCars } from '../../hooks/useCars';
+import { notificationsApi } from '../../services/api';
+import { useAuth } from '../../services/auth';
 import CarCard from '../../components/CarCard';
 import CarCardSkeleton from '../../components/CarCardSkeleton';
 import SearchBar from '../../components/SearchBar';
@@ -13,9 +17,20 @@ import ErrorState from '../../components/ErrorState';
 const FILTERS = ['All Cities', 'SUV', 'Sedan', 'Under 75K'];
 
 export default function CarsScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All Cities');
+  const [unreadCount, setUnreadCount] = useState(0);
   const { cars, loading, loadingMore, error, refetch, loadMore, hasMore } = useCars();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        notificationsApi.unreadCount().then((r) => setUnreadCount(r.count)).catch(() => {});
+      }
+    }, [user])
+  );
 
   const filtered = useMemo(() => {
     let result = cars;
@@ -57,7 +72,16 @@ export default function CarsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.logo}>YallaRent</Text>
-        <Ionicons name="person-circle-outline" size={32} color={Colors.foregroundMuted} />
+        <Pressable onPress={() => router.push('/notifications')} style={styles.bellBtn}>
+          <Ionicons name="notifications-outline" size={26} color={Colors.foreground} />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
+        </Pressable>
       </View>
 
       <FlatList
@@ -121,6 +145,27 @@ const styles = StyleSheet.create({
     fontSize: FontSize.pageTitle,
     fontWeight: FontWeight.bold,
     color: Colors.primary,
+  },
+  bellBtn: {
+    padding: Spacing.xs,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: Colors.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
   },
   list: {
     paddingHorizontal: Spacing.lg,
