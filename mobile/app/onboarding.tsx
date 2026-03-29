@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
+import { t } from '../services/i18n';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -21,28 +22,28 @@ const ONBOARDING_KEY = 'onboarding_complete';
 
 interface Slide {
   icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  subtitle: string;
+  titleKey: string;
+  subtitleKey: string;
   color: string;
 }
 
 const slides: Slide[] = [
   {
     icon: 'car-sport',
-    title: 'Find Your Perfect Car',
-    subtitle: 'Browse hundreds of cars from trusted rental companies across Iraq.',
+    titleKey: 'onboarding.slide1Title',
+    subtitleKey: 'onboarding.slide1Subtitle',
     color: Colors.primary,
   },
   {
     icon: 'calendar',
-    title: 'Book in Seconds',
-    subtitle: 'Pick your dates, choose your car, and confirm your booking instantly.',
+    titleKey: 'onboarding.slide2Title',
+    subtitleKey: 'onboarding.slide2Subtitle',
     color: '#FF6B35',
   },
   {
     icon: 'navigate',
-    title: 'Hit the Road',
-    subtitle: 'Pick up your car and enjoy the ride. It\'s that simple.',
+    titleKey: 'onboarding.slide3Title',
+    subtitleKey: 'onboarding.slide3Subtitle',
     color: '#4ECDC4',
   },
 ];
@@ -75,7 +76,7 @@ export default function OnboardingScreen() {
       <View style={styles.skipRow}>
         {activeIndex < slides.length - 1 ? (
           <Pressable onPress={completeOnboarding}>
-            <Text style={styles.skipText}>Skip</Text>
+            <Text style={styles.skipText}>{t('onboarding.skip')}</Text>
           </Pressable>
         ) : (
           <View />
@@ -95,8 +96,8 @@ export default function OnboardingScreen() {
             <View style={[styles.iconCircle, { backgroundColor: item.color + '15' }]}>
               <Ionicons name={item.icon} size={64} color={item.color} />
             </View>
-            <Text style={styles.slideTitle}>{item.title}</Text>
-            <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
+            <Text style={styles.slideTitle}>{t(item.titleKey)}</Text>
+            <Text style={styles.slideSubtitle}>{t(item.subtitleKey)}</Text>
           </View>
         )}
       />
@@ -116,7 +117,7 @@ export default function OnboardingScreen() {
 
         <Pressable style={styles.nextButton} onPress={goNext}>
           <Text style={styles.nextButtonText}>
-            {activeIndex === slides.length - 1 ? 'Get Started' : 'Next'}
+            {activeIndex === slides.length - 1 ? t('onboarding.getStarted') : t('onboarding.next')}
           </Text>
           <Ionicons
             name={activeIndex === slides.length - 1 ? 'checkmark' : 'arrow-forward'}

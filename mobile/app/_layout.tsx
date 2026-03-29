@@ -6,6 +6,7 @@ import { Colors } from '../constants/theme';
 import { AuthContext } from '../services/auth';
 import { authApi, setAuthToken } from '../services/api';
 import { AlertProvider } from '../services/alert';
+import { LanguageProvider } from '../services/language';
 import { registerForPushNotifications, unregisterPushNotifications } from '../services/notifications';
 import type { User } from '../services/auth';
 
@@ -87,6 +88,7 @@ export default function RootLayout() {
   if (!isReady) return null;
 
   return (
+    <LanguageProvider>
     <AlertProvider>
     <AuthContext.Provider value={{ user, token, login, signup, logout, updateUser }}>
       <StatusBar style="dark" />
@@ -156,5 +158,6 @@ export default function RootLayout() {
       </Stack>
     </AuthContext.Provider>
     </AlertProvider>
+    </LanguageProvider>
   );
 }

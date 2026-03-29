@@ -7,6 +7,7 @@ import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/them
 import CarCard from '../components/CarCard';
 import { favoritesApi } from '../services/api';
 import { useAuth } from '../services/auth';
+import { t } from '../services/i18n';
 
 export default function FavoritesScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function FavoritesScreen() {
         <Pressable onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={Colors.foreground} />
         </Pressable>
-        <Text style={styles.title}>Favorites</Text>
+        <Text style={styles.title}>{t('favorites.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -50,13 +51,13 @@ export default function FavoritesScreen() {
           <View style={styles.iconCircle}>
             <Ionicons name="heart-outline" size={40} color={Colors.foregroundMuted} />
           </View>
-          <Text style={styles.emptyTitle}>No favorites yet</Text>
+          <Text style={styles.emptyTitle}>{t('favorites.noFavorites')}</Text>
           <Text style={styles.emptyMessage}>
-            Tap the heart icon on a car to save it to your favorites.
+            {t('favorites.noFavoritesMessage')}
           </Text>
           <Pressable style={styles.button} onPress={() => router.replace('/')}>
             <Ionicons name="search" size={18} color={Colors.surfacePrimary} />
-            <Text style={styles.buttonText}>Browse Cars</Text>
+            <Text style={styles.buttonText}>{t('favorites.browseCars')}</Text>
           </Pressable>
         </View>
       ) : (

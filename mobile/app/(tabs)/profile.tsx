@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import { useAuth } from '../../services/auth';
 import { useAlert } from '../../services/alert';
+import { t } from '../../services/i18n';
+import { useLanguage } from '../../services/language';
 
 function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPress?: () => void }) {
   return (
@@ -20,15 +22,16 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { showAlert } = useAlert();
+  const { language } = useLanguage();
 
   const handleLogout = () => {
     showAlert({
-      title: 'Log Out',
-      message: 'Are you sure you want to log out?',
+      title: t('profile.logout'),
+      message: t('profile.logoutConfirm'),
       type: 'confirm',
       buttons: [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Log Out', style: 'destructive', onPress: logout },
+        { text: t('profile.cancel'), style: 'cancel' },
+        { text: t('profile.logout'), style: 'destructive', onPress: logout },
       ],
     });
   };
@@ -36,20 +39,20 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <Text style={styles.title}>Profile</Text>
+        <Text style={styles.title}>{t('profile.title')}</Text>
         <View style={styles.loginPrompt}>
           <View style={styles.iconCircle}>
             <Ionicons name="person-outline" size={40} color={Colors.foregroundMuted} />
           </View>
-          <Text style={styles.promptTitle}>Sign in to your account</Text>
+          <Text style={styles.promptTitle}>{t('profile.signIn')}</Text>
           <Text style={styles.promptMessage}>
-            Log in to manage your bookings and profile.
+            {t('profile.loginMessage')}
           </Text>
           <Pressable
             style={styles.button}
             onPress={() => router.push('/login')}
           >
-            <Text style={styles.buttonText}>Log In</Text>
+            <Text style={styles.buttonText}>{t('profile.logIn')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -65,7 +68,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.title}>Profile</Text>
+      <Text style={styles.title}>{t('profile.title')}</Text>
 
       {/* User Info */}
       <Pressable style={styles.userCard} onPress={() => router.push('/edit-profile')}>
@@ -82,17 +85,17 @@ export default function ProfileScreen() {
 
       {/* Menu */}
       <View style={styles.menu}>
-        <MenuItem icon="car-outline" label="My Bookings" onPress={() => router.push('/(tabs)/bookings')} />
-        <MenuItem icon="heart-outline" label="Favorites" onPress={() => router.push('/favorites')} />
-        <MenuItem icon="notifications-outline" label="Notifications" onPress={() => router.push('/notifications')} />
-        <MenuItem icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />
-        <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => router.push('/help')} />
+        <MenuItem icon="car-outline" label={t('profile.myBookings')} onPress={() => router.push('/(tabs)/bookings')} />
+        <MenuItem icon="heart-outline" label={t('profile.favorites')} onPress={() => router.push('/favorites')} />
+        <MenuItem icon="notifications-outline" label={t('profile.notifications')} onPress={() => router.push('/notifications')} />
+        <MenuItem icon="settings-outline" label={t('profile.settings')} onPress={() => router.push('/settings')} />
+        <MenuItem icon="help-circle-outline" label={t('profile.helpSupport')} onPress={() => router.push('/help')} />
       </View>
 
       {/* Logout */}
       <Pressable style={styles.logoutButton} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-        <Text style={styles.logoutText}>Log Out</Text>
+        <Text style={styles.logoutText}>{t('profile.logout')}</Text>
       </Pressable>
     </SafeAreaView>
   );
