@@ -33,6 +33,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       adaptiveIcon: {
         backgroundColor: '#0F2B46',
       },
+      googleServicesFile: './google-services.json',
     },
     web: {
       bundler: 'metro' as const,
