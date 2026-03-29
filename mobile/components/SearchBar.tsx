@@ -1,6 +1,7 @@
 import { StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../constants/theme';
+import { t } from '../services/i18n';
 
 interface SearchBarProps {
   value: string;
@@ -8,7 +9,7 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-export default function SearchBar({ value, onChangeText, placeholder = 'Search by city, car type...' }: SearchBarProps) {
+export default function SearchBar({ value, onChangeText, placeholder }: SearchBarProps) {
   return (
     <View style={styles.container}>
       <Ionicons name="search" size={20} color={Colors.foregroundMuted} />
@@ -16,7 +17,7 @@ export default function SearchBar({ value, onChangeText, placeholder = 'Search b
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
+        placeholder={placeholder || t('search.placeholder')}
         placeholderTextColor={Colors.foregroundMuted}
       />
     </View>

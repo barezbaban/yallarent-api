@@ -9,14 +9,16 @@ import BookingCard from '../../components/BookingCard';
 import { bookingsApi, Booking } from '../../services/api';
 import { useAuth } from '../../services/auth';
 import { useAlert } from '../../services/alert';
-
-const TABS = ['All', 'Upcoming', 'Past'];
+import { t } from '../../services/i18n';
+import { useLanguage } from '../../services/language';
 
 export default function BookingsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { showAlert } = useAlert();
-  const [activeTab, setActiveTab] = useState('All');
+  const { language } = useLanguage();
+  const TABS = [t('bookings.all'), t('bookings.upcoming'), t('bookings.past')];
+  const [activeTab, setActiveTab] = useState(TABS[0]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,15 +44,15 @@ export default function BookingsScreen() {
   }, [fetchBookings]);
 
   const filtered = bookings.filter((b) => {
-    if (activeTab === 'All') return true;
-    if (activeTab === 'Upcoming') return b.status === 'pending' || b.status === 'confirmed';
-    if (activeTab === 'Past') return b.status === 'completed' || b.status === 'cancelled';
+    if (activeTab === t('bookings.all')) return true;
+    if (activeTab === t('bookings.upcoming')) return b.status === 'pending' || b.status === 'confirmed';
+    if (activeTab === t('bookings.past')) return b.status === 'completed' || b.status === 'cancelled';
     return true;
   });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.title}>My Bookings</Text>
+      <Text style={styles.title}>{t('bookings.title')}</Text>
       <View style={styles.filterRow}>
         <FilterChips filters={TABS} selected={activeTab} onSelect={setActiveTab} />
       </View>
@@ -60,16 +62,16 @@ export default function BookingsScreen() {
           <View style={styles.iconCircle}>
             <Ionicons name="calendar-outline" size={40} color={Colors.foregroundMuted} />
           </View>
-          <Text style={styles.emptyTitle}>No bookings yet</Text>
+          <Text style={styles.emptyTitle}>{t('bookings.empty')}</Text>
           <Text style={styles.emptyMessage}>
-            When you book a car, it will appear here. Browse available cars to get started.
+            {t('bookings.emptyMessage')}
           </Text>
           <Pressable
             style={styles.button}
             onPress={() => router.replace('/')}
           >
             <Ionicons name="search" size={18} color={Colors.surfacePrimary} />
-            <Text style={styles.buttonText}>Browse Cars</Text>
+            <Text style={styles.buttonText}>{t('bookings.browseCars')}</Text>
           </Pressable>
         </View>
       ) : (
@@ -87,20 +89,20 @@ export default function BookingsScreen() {
               status={item.status}
               onCancel={() => {
                 showAlert({
-                  title: 'Cancel Booking',
-                  message: 'Are you sure you want to cancel this booking?',
+                  title: t('bookings.cancelConfirm'),
+                  message: t('bookings.cancelMessage'),
                   type: 'confirm',
                   buttons: [
-                    { text: 'No', style: 'cancel' },
+                    { text: t('bookings.cancelNo'), style: 'cancel' },
                     {
-                      text: 'Yes, Cancel',
+                      text: t('bookings.cancelYes'),
                       style: 'destructive',
                       onPress: async () => {
                         try {
                           await bookingsApi.cancel(item.id);
                           fetchBookings();
                         } catch {
-                          showAlert({ title: 'Error', message: 'Failed to cancel booking', type: 'error' });
+                          showAlert({ title: t('common.error'), message: t('bookings.cancelFailed'), type: 'error' });
                         }
                       },
                     },

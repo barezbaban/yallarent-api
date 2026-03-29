@@ -12,21 +12,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 import { notificationsApi, type AppNotification } from '../services/api';
+import { t } from '../services/i18n';
+import { useLanguage } from '../services/language';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('notifications.justNow');
+  if (mins < 60) return `${mins}${t('notifications.mAgo')}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return `${hrs}${t('notifications.hAgo')}`;
   const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return `${days}${t('notifications.dAgo')}`;
   return new Date(dateStr).toLocaleDateString();
 }
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { language } = useLanguage();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,10 +101,10 @@ export default function NotificationsScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.foreground} />
         </Pressable>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={styles.headerTitle}>{t('notifications.title')}</Text>
         {unreadCount > 0 ? (
           <Pressable onPress={handleMarkAllAsRead} style={styles.markAllBtn}>
-            <Text style={styles.markAllText}>Read All</Text>
+            <Text style={styles.markAllText}>{t('notifications.readAll')}</Text>
           </Pressable>
         ) : (
           <View style={{ width: 70 }} />
@@ -124,7 +127,7 @@ export default function NotificationsScreen() {
           ListEmptyComponent={
             <View style={styles.center}>
               <Ionicons name="notifications-off-outline" size={64} color={Colors.border} />
-              <Text style={styles.emptyText}>No notifications yet</Text>
+              <Text style={styles.emptyText}>{t('notifications.noNotifications')}</Text>
             </View>
           }
         />
