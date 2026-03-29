@@ -88,4 +88,70 @@ async function updateProfile(req, res) {
   }
 }
 
-module.exports = { signup, login, me, updateProfile };
+// Default OTP code — replace with real SMS/WhatsApp provider later
+const DEFAULT_OTP = '123456';
+
+// In-memory store for reset tokens (swap for Redis/DB in production)
+const resetTokens = new Map();
+
+async function requestReset(req, res) {
+  try {
+    const { phone } = req.body;
+    const user = await userQueries.findByPhone(phone);
+    if (!user) {
+      // Don't reveal whether phone exists
+      return res.json({ message: 'If this phone is registered, you will receive a code' });
+    }
+
+    // Store OTP with 10-minute expiry
+    resetTokens.set(phone, { otp: DEFAULT_OTP, expires: Date.now() + 10 * 60 * 1000 });
+
+    // TODO: Send OTP via WhatsApp/SMS here
+    res.json({ message: 'If this phone is registered, you will receive a code' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+}
+
+async function verifyOtp(req, res) {
+  try {
+    const { phone, otp } = req.body;
+    const entry = resetTokens.get(phone);
+
+    if (!entry || entry.otp !== otp || Date.now() > entry.expires) {
+      return res.status(400).json({ error: 'Invalid or expired code' });
+    }
+
+    // Generate a short-lived reset token
+    const resetToken = crypto.randomUUID();
+    resetTokens.set(phone, { resetToken, expires: Date.now() + 5 * 60 * 1000 });
+
+    res.json({ resetToken });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to verify code' });
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const { phone, resetToken, newPassword } = req.body;
+    const entry = resetTokens.get(phone);
+
+    if (!entry || entry.resetToken !== resetToken || Date.now() > entry.expires) {
+      return res.status(400).json({ error: 'Invalid or expired reset session' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const user = await userQueries.updatePassword(phone, passwordHash);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    resetTokens.delete(phone);
+    res.json({ message: 'Password reset successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+}
+
+module.exports = { signup, login, me, updateProfile, requestReset, verifyOtp, resetPassword };

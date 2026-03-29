@@ -78,6 +78,24 @@ export interface AuthResponse {
   token: string;
 }
 
+export const passwordApi = {
+  requestReset: (phone: string) =>
+    request<{ message: string }>('/auth/request-reset', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    }),
+  verifyOtp: (phone: string, otp: string) =>
+    request<{ resetToken: string }>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, otp }),
+    }),
+  resetPassword: (phone: string, resetToken: string, newPassword: string) =>
+    request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ phone, resetToken, newPassword }),
+    }),
+};
+
 export const authApi = {
   login: (phone: string, password: string) =>
     request<AuthResponse>('/auth/login', {
