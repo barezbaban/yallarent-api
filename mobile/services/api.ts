@@ -150,6 +150,25 @@ export const devicesApi = {
     request<{ message: string }>('/devices', { method: 'DELETE', body: JSON.stringify({ pushToken }) }),
 };
 
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  read: boolean;
+  created_at: string;
+}
+
+export const notificationsApi = {
+  list: (page = 1, limit = 50) =>
+    request<AppNotification[]>(`/notifications?page=${page}&limit=${limit}`),
+  unreadCount: () =>
+    request<{ count: number }>('/notifications/unread-count'),
+  markAsRead: (id: string) =>
+    request<AppNotification>(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllAsRead: () =>
+    request<{ message: string }>('/notifications/read-all', { method: 'PATCH' }),
+};
+
 export const bookingsApi = {
   list: () => request<Booking[]>('/bookings'),
   create: (data: { carId: string; startDate: string; endDate: string; pickupTime?: string; dropoffTime?: string; pickupLocation?: string; dropoffLocation?: string }) =>
