@@ -86,6 +86,11 @@ const unregisterDevice = z.object({
   pushToken: z.string().min(1, 'Push token is required'),
 });
 
+const sendNotification = z.object({
+  title: z.string().min(1, 'Title is required').max(100),
+  body: z.string().min(1, 'Body is required').max(500),
+});
+
 module.exports = {
   signup,
   login,
@@ -100,4 +105,5 @@ module.exports = {
   resetPassword,
   registerDevice,
   unregisterDevice,
+  sendNotification,
 };
