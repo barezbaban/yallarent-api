@@ -145,6 +145,14 @@ export default function RootLayout() {
           name="notifications"
           options={{ animation: 'slide_from_right' }}
         />
+        <Stack.Screen
+          name="settings"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="help"
+          options={{ animation: 'slide_from_right' }}
+        />
       </Stack>
     </AuthContext.Provider>
     </AlertProvider>
