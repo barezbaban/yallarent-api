@@ -195,7 +195,7 @@ export default function LoginScreen() {
 
         {tab === 'login' && (
           <>
-            <Pressable style={styles.forgotButton}>
+            <Pressable style={styles.forgotButton} onPress={() => router.push('/forgot-password')}>
               <Text style={styles.linkText}>Forgot password?</Text>
             </Pressable>
 

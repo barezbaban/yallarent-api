@@ -59,6 +59,24 @@ const carIdParam = z.object({
   carId: uuid,
 });
 
+const requestReset = z.object({
+  phone: z.string().min(1, 'Phone is required'),
+});
+
+const verifyOtp = z.object({
+  phone: z.string().min(1, 'Phone is required'),
+  otp: z.string().length(6, 'Code must be 6 digits'),
+});
+
+const resetPassword = z.object({
+  phone: z.string().min(1, 'Phone is required'),
+  resetToken: z.string().min(1, 'Reset token is required'),
+  newPassword: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+});
+
 const registerDevice = z.object({
   pushToken: z.string().min(1, 'Push token is required'),
   platform: z.enum(['ios', 'android']).optional().default('ios'),
@@ -77,6 +95,9 @@ module.exports = {
   carListQuery,
   uuidParam,
   carIdParam,
+  requestReset,
+  verifyOtp,
+  resetPassword,
   registerDevice,
   unregisterDevice,
 };
