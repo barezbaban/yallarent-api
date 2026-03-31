@@ -5,17 +5,25 @@ async function findByPhone(phone) {
   return rows[0];
 }
 
-async function create({ fullName, phone, passwordHash, city }) {
+async function create({ fullName, phone, email, passwordHash, city }) {
   const { rows } = await pool.query(
-    'INSERT INTO users (full_name, phone, password_hash, city) VALUES ($1, $2, $3, $4) RETURNING id, full_name, phone, city, created_at',
-    [fullName, phone, passwordHash, city]
+    'INSERT INTO users (full_name, phone, email, password_hash, city, is_verified) VALUES ($1, $2, $3, $4, $5, FALSE) RETURNING id, full_name, phone, email, city, created_at',
+    [fullName, phone, email || '', passwordHash, city]
+  );
+  return rows[0];
+}
+
+async function markVerified(phone) {
+  const { rows } = await pool.query(
+    'UPDATE users SET is_verified = TRUE WHERE phone = $1 RETURNING id, full_name, phone, email, city',
+    [phone]
   );
   return rows[0];
 }
 
 async function findById(id) {
   const { rows } = await pool.query(
-    'SELECT id, full_name, phone, city, created_at FROM users WHERE id = $1',
+    'SELECT id, full_name, phone, email, city, created_at FROM users WHERE id = $1',
     [id]
   );
   return rows[0];
@@ -60,4 +68,4 @@ async function updatePassword(phone, passwordHash) {
   return rows[0];
 }
 
-module.exports = { findByPhone, create, findById, update, incrementFailedAttempts, resetFailedAttempts, updatePassword };
+module.exports = { findByPhone, create, findById, update, incrementFailedAttempts, resetFailedAttempts, updatePassword, markVerified };

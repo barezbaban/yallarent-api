@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import {
+  FlatList,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -10,9 +12,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
+import { IRAQ_CITIES } from '../constants/cities';
 import { authApi } from '../services/api';
 import { useAuth } from '../services/auth';
 import { useAlert } from '../services/alert';
+import { t } from '../services/i18n';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -21,6 +25,7 @@ export default function EditProfileScreen() {
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [city, setCity] = useState(user?.city || '');
   const [saving, setSaving] = useState(false);
+  const [showCityPicker, setShowCityPicker] = useState(false);
 
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -75,14 +80,14 @@ export default function EditProfileScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>City</Text>
-          <TextInput
-            style={styles.input}
-            value={city}
-            onChangeText={setCity}
-            placeholder="Enter your city"
-            placeholderTextColor={Colors.foregroundMuted}
-          />
+          <Text style={styles.label}>{t('editProfile.city')}</Text>
+          <Pressable style={styles.cityPicker} onPress={() => setShowCityPicker(true)}>
+            <Ionicons name="location-outline" size={20} color={Colors.foregroundMuted} />
+            <Text style={[styles.cityPickerText, !city && { color: Colors.foregroundMuted }]}>
+              {city || t('editProfile.cityPlaceholder')}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={Colors.foregroundMuted} />
+          </Pressable>
         </View>
       </View>
 
@@ -93,10 +98,46 @@ export default function EditProfileScreen() {
           disabled={saving}
         >
           <Text style={styles.saveButtonText}>
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? t('editProfile.saving') : t('editProfile.saveChanges')}
           </Text>
         </Pressable>
       </View>
+
+      {/* City Picker Modal */}
+      <Modal visible={showCityPicker} animationType="slide" transparent>
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContent}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>{t('login.selectCity')}</Text>
+              <Pressable onPress={() => setShowCityPicker(false)}>
+                <Ionicons name="close" size={24} color={Colors.foreground} />
+              </Pressable>
+            </View>
+            <FlatList
+              data={IRAQ_CITIES}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => {
+                const selected = item === city;
+                return (
+                  <Pressable
+                    style={[styles.cityRow, selected && styles.cityRowActive]}
+                    onPress={() => {
+                      setCity(item);
+                      setShowCityPicker(false);
+                    }}
+                  >
+                    <View style={[styles.cityIcon, selected && styles.cityIconActive]}>
+                      <Ionicons name="location" size={18} color={selected ? Colors.surfacePrimary : Colors.primary} />
+                    </View>
+                    <Text style={[styles.cityName, selected && styles.cityNameActive]}>{item}</Text>
+                    {selected && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
+                  </Pressable>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -165,5 +206,77 @@ const styles = StyleSheet.create({
     fontSize: FontSize.button,
     fontWeight: FontWeight.semibold,
     color: Colors.surfacePrimary,
+  },
+  cityPicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.button,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  cityPickerText: {
+    flex: 1,
+    fontSize: FontSize.body,
+    color: Colors.foreground,
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerContent: {
+    backgroundColor: Colors.surfacePrimary,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '60%',
+    paddingBottom: Spacing['3xl'],
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  pickerTitle: {
+    fontSize: FontSize.sectionHeader,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  cityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  cityRowActive: {
+    backgroundColor: Colors.tealLight,
+  },
+  cityIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.tealLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cityIconActive: {
+    backgroundColor: Colors.primary,
+  },
+  cityName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  cityNameActive: {
+    color: Colors.primary,
   },
 });

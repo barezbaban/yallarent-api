@@ -13,14 +13,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 import { passwordApi } from '../services/api';
+import { useAuth } from '../services/auth';
 import { useAlert } from '../services/alert';
 
 const CODE_LENGTH = 6;
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
+  const { verifySignup } = useAuth();
   const { showAlert } = useAlert();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, flow } = useLocalSearchParams<{ phone: string; flow?: string }>();
+  const isSignupFlow = flow === 'signup';
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);
@@ -54,11 +57,16 @@ export default function VerifyOtpScreen() {
 
     setLoading(true);
     try {
-      const { resetToken } = await passwordApi.verifyOtp(phone!, otp);
-      router.push({
-        pathname: '/reset-password',
-        params: { phone: phone!, resetToken },
-      });
+      if (isSignupFlow) {
+        await verifySignup(phone!, otp);
+        router.replace('/');
+      } else {
+        const { resetToken } = await passwordApi.verifyOtp(phone!, otp);
+        router.push({
+          pathname: '/reset-password',
+          params: { phone: phone!, resetToken },
+        });
+      }
     } catch (err: any) {
       showAlert({ title: 'Invalid Code', message: err.message || 'The code you entered is incorrect', type: 'error' });
     } finally {

@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,8 +16,10 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
+import { IRAQ_CITIES } from '../constants/cities';
 import { useAuth } from '../services/auth';
 import { useAlert } from '../services/alert';
+import { t } from '../services/i18n';
 
 type Tab = 'login' | 'signup';
 
@@ -44,12 +48,21 @@ export default function LoginScreen() {
   const [tab, setTab] = useState<Tab>('login');
   const [countryCode, setCountryCode] = useState(COUNTRY_CODES[0]);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [showCityPicker, setShowCityPicker] = useState(false);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [city, setCity] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
+
+  const handlePhoneChange = (text: string) => {
+    const digits = text.replace(/[^0-9]/g, '');
+    const maxLen = digits.startsWith('0') ? 11 : 10;
+    setPhone(digits.slice(0, maxLen));
+  };
 
   const handleSubmit = async () => {
     if (!phone || !password) {
@@ -69,11 +82,23 @@ export default function LoginScreen() {
     try {
       if (tab === 'login') {
         await login(cleanPhone, password);
+        router.replace('/');
       } else {
-        await signup(fullName, cleanPhone, password, city);
+        await signup(fullName, cleanPhone, password, city, email || undefined);
+        router.push({
+          pathname: '/verify-otp',
+          params: { phone: cleanPhone, flow: 'signup' },
+        });
       }
-      router.back();
     } catch (err: any) {
+      // If login returns requiresVerification, redirect to OTP
+      if (err.message?.includes('not verified')) {
+        router.push({
+          pathname: '/verify-otp',
+          params: { phone: cleanPhone, flow: 'signup' },
+        });
+        return;
+      }
       showAlert({ title: 'Error', message: err.message || 'Something went wrong', type: 'error' });
     } finally {
       setLoading(false);
@@ -86,6 +111,11 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.content}
       >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+        >
         <Text style={styles.logo}>YallaRent</Text>
         <Text style={styles.tagline}>Rent a car. Anytime. Anywhere.</Text>
 
@@ -124,15 +154,26 @@ export default function LoginScreen() {
               />
             </View>
 
-            <Text style={styles.label}>City</Text>
-            <View style={styles.inputContainer}>
+            <Text style={styles.label}>{t('login.city')}</Text>
+            <Pressable style={styles.inputContainer} onPress={() => setShowCityPicker(true)}>
               <Ionicons name="location-outline" size={20} color={Colors.foregroundMuted} />
+              <Text style={[styles.input, !city && { color: Colors.foregroundMuted }]}>
+                {city || t('login.cityPlaceholder')}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={Colors.foregroundMuted} />
+            </Pressable>
+
+            <Text style={styles.label}>{t('login.email')}</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="mail-outline" size={20} color={Colors.foregroundMuted} />
               <TextInput
                 style={styles.input}
-                placeholder="e.g. Erbil, Baghdad"
+                placeholder={t('login.emailPlaceholder')}
                 placeholderTextColor={Colors.foregroundMuted}
-                value={city}
-                onChangeText={setCity}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
               />
             </View>
           </>
@@ -156,7 +197,10 @@ export default function LoginScreen() {
               placeholderTextColor={Colors.foregroundMuted}
               keyboardType="phone-pad"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={handlePhoneChange}
+              maxLength={phone.startsWith('0') ? 11 : 10}
+              returnKeyType="done"
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
           </View>
         </View>
@@ -166,12 +210,15 @@ export default function LoginScreen() {
         <View style={styles.inputContainer}>
           <Ionicons name="lock-closed-outline" size={20} color={Colors.foregroundMuted} />
           <TextInput
+            ref={passwordRef}
             style={styles.input}
             placeholder="Enter your password"
             placeholderTextColor={Colors.foregroundMuted}
             secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
           />
           <Pressable onPress={() => setShowPassword(!showPassword)}>
             <Ionicons
@@ -222,6 +269,7 @@ export default function LoginScreen() {
             </Text>
           </Text>
         )}
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Country Code Picker */}
@@ -260,6 +308,41 @@ export default function LoginScreen() {
           </View>
         </View>
       </Modal>
+      {/* City Picker */}
+      <Modal visible={showCityPicker} animationType="slide" transparent>
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContent}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>{t('login.selectCity')}</Text>
+              <Pressable onPress={() => setShowCityPicker(false)}>
+                <Ionicons name="close" size={24} color={Colors.foreground} />
+              </Pressable>
+            </View>
+            <FlatList
+              data={IRAQ_CITIES}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => {
+                const selected = item === city;
+                return (
+                  <Pressable
+                    style={[styles.cityRow, selected && styles.cityRowActive]}
+                    onPress={() => {
+                      setCity(item);
+                      setShowCityPicker(false);
+                    }}
+                  >
+                    <View style={[styles.cityIcon, selected && styles.cityIconActive]}>
+                      <Ionicons name="location" size={18} color={selected ? Colors.surfacePrimary : Colors.primary} />
+                    </View>
+                    <Text style={[styles.cityName, selected && styles.cityNameActive]}>{item}</Text>
+                    {selected && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
+                  </Pressable>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -271,8 +354,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: Spacing['2xl'],
     paddingTop: Spacing['3xl'],
+    paddingBottom: Spacing['3xl'],
   },
   logo: {
     fontSize: 28,
@@ -455,5 +541,37 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: Colors.foregroundSecondary,
     fontWeight: FontWeight.semibold,
+  },
+  cityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  cityRowActive: {
+    backgroundColor: Colors.tealLight,
+  },
+  cityIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.tealLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cityIconActive: {
+    backgroundColor: Colors.primary,
+  },
+  cityName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  cityNameActive: {
+    color: Colors.primary,
   },
 });
