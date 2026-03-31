@@ -6,14 +6,18 @@ let token;
 
 beforeAll(async () => {
   await resetDatabase();
-  // Create a user and get token
-  const res = await request(app).post('/api/auth/signup').send({
+  // Create a user, verify OTP, then get token
+  await request(app).post('/api/auth/signup').send({
     fullName: 'Booking User',
     phone: '07503333333',
     password: 'Test1234',
     city: 'Erbil',
   });
-  token = res.body.token;
+  const verified = await request(app).post('/api/auth/verify-signup').send({
+    phone: '07503333333',
+    otp: '123456',
+  });
+  token = verified.body.token;
 });
 
 afterAll(() => closeDatabase());
