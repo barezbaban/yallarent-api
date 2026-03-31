@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -167,12 +166,12 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="document-text-outline"
             label={t('settings.termsOfService')}
-            onPress={() => Linking.openURL('https://yallarent.com/terms')}
+            onPress={() => router.push('/terms')}
           />
           <SettingsRow
             icon="shield-checkmark-outline"
             label={t('settings.privacyPolicy')}
-            onPress={() => Linking.openURL('https://yallarent.com/privacy')}
+            onPress={() => router.push('/privacy')}
           />
         </View>
 

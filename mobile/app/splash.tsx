@@ -4,24 +4,28 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { Colors, FontWeight, Spacing } from '../constants/theme';
+import { useAuth } from '../services/auth';
 import { t } from '../services/i18n';
 
 const ONBOARDING_KEY = 'onboarding_complete';
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { user } = useAuth();
 
   useEffect(() => {
     const timer = setTimeout(async () => {
       const done = await SecureStore.getItemAsync(ONBOARDING_KEY);
-      if (done) {
+      if (!done) {
+        router.replace('/onboarding');
+      } else if (user) {
         router.replace('/');
       } else {
-        router.replace('/onboarding');
+        router.replace('/welcome');
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [router]);
+  }, [router, user]);
 
   return (
     <View style={styles.container}>

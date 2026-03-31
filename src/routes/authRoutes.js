@@ -7,6 +7,7 @@ const schemas = require('../schemas');
 const router = Router();
 
 router.post('/signup', validate(schemas.signup), authController.signup);
+router.post('/verify-signup', validate(schemas.verifySignup), authController.verifySignup);
 router.post('/login', validate(schemas.login), authController.login);
 router.post('/request-reset', validate(schemas.requestReset), authController.requestReset);
 router.post('/verify-otp', validate(schemas.verifyOtp), authController.verifyOtp);

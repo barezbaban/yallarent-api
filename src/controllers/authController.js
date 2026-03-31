@@ -6,7 +6,7 @@ const { jwtSecret } = require('../config/env');
 
 async function signup(req, res) {
   try {
-    const { fullName, phone, password, city } = req.body;
+    const { fullName, phone, password, city, email } = req.body;
 
     if (!fullName || !phone || !password) {
       return res.status(400).json({ error: 'Full name, phone, and password are required' });
@@ -18,13 +18,39 @@ async function signup(req, res) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await userQueries.create({ fullName, phone, passwordHash, city });
+    await userQueries.create({ fullName, phone, email, passwordHash, city });
+
+    // Store OTP for verification
+    resetTokens.set(phone, { otp: DEFAULT_OTP, expires: Date.now() + 10 * 60 * 1000 });
+
+    // TODO: Send OTP via WhatsApp/SMS here
+    res.status(201).json({ message: 'Account created. Please verify your phone number.', phone });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create account' });
+  }
+}
+
+async function verifySignup(req, res) {
+  try {
+    const { phone, otp } = req.body;
+    const entry = resetTokens.get(phone);
+
+    if (!entry || entry.otp !== otp || Date.now() > entry.expires) {
+      return res.status(400).json({ error: 'Invalid or expired code' });
+    }
+
+    const user = await userQueries.markVerified(phone);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    resetTokens.delete(phone);
 
     const token = jwt.sign({ id: user.id, role: 'user', jti: crypto.randomUUID() }, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
 
-    res.status(201).json({ user, token });
+    res.json({ user, token });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to create account' });
+    res.status(500).json({ error: 'Failed to verify account' });
   }
 }
 
@@ -58,8 +84,15 @@ async function login(req, res) {
 
     const token = jwt.sign({ id: user.id, role: 'user', jti: crypto.randomUUID() }, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
 
+    // Check if account is verified
+    if (user.is_verified === false) {
+      // Re-send OTP
+      resetTokens.set(phone, { otp: DEFAULT_OTP, expires: Date.now() + 10 * 60 * 1000 });
+      return res.status(403).json({ error: 'Account not verified', phone, requiresVerification: true });
+    }
+
     res.json({
-      user: { id: user.id, full_name: user.full_name, phone: user.phone, city: user.city },
+      user: { id: user.id, full_name: user.full_name, phone: user.phone, email: user.email, city: user.city },
       token,
     });
   } catch (err) {
@@ -154,4 +187,4 @@ async function resetPassword(req, res) {
   }
 }
 
-module.exports = { signup, login, me, updateProfile, requestReset, verifyOtp, resetPassword };
+module.exports = { signup, verifySignup, login, me, updateProfile, requestReset, verifyOtp, resetPassword };

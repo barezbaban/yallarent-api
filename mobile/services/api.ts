@@ -74,8 +74,13 @@ export interface Booking {
 }
 
 export interface AuthResponse {
-  user: { id: string; full_name: string; phone: string; city?: string };
+  user: { id: string; full_name: string; phone: string; email?: string; city?: string };
   token: string;
+}
+
+export interface SignupResponse {
+  message: string;
+  phone: string;
 }
 
 export const passwordApi = {
@@ -102,10 +107,15 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ phone, password }),
     }),
-  signup: (fullName: string, phone: string, password: string, city: string) =>
-    request<AuthResponse>('/auth/signup', {
+  signup: (fullName: string, phone: string, password: string, city: string, email?: string) =>
+    request<SignupResponse>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ fullName, phone, password, city }),
+      body: JSON.stringify({ fullName, phone, password, city, email }),
+    }),
+  verifySignup: (phone: string, otp: string) =>
+    request<AuthResponse>('/auth/verify-signup', {
+      method: 'POST',
+      body: JSON.stringify({ phone, otp }),
     }),
   updateProfile: (data: { fullName?: string; city?: string }) =>
     request<{ id: string; full_name: string; phone: string; city?: string }>('/auth/me', {

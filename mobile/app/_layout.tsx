@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { Colors } from '../constants/theme';
@@ -13,11 +13,16 @@ import type { User } from '../services/auth';
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 const PUSH_TOKEN_KEY = 'push_token';
+const ONBOARDING_KEY = 'onboarding_complete';
+const GUEST_MODE_KEY = 'guest_mode';
 
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [guestMode, setGuestMode] = useState(false);
+  const router = useRouter();
+  const segments = useSegments();
 
   // Hydrate auth state from secure storage on launch
   useEffect(() => {
@@ -34,10 +39,29 @@ export default function RootLayout() {
             if (pt) await SecureStore.setItemAsync(PUSH_TOKEN_KEY, pt);
           }).catch(() => {});
         }
+        // Guest mode is session-only — don't restore from storage
+        await SecureStore.deleteItemAsync(GUEST_MODE_KEY);
       } catch {}
       setIsReady(true);
     })();
   }, []);
+
+  // Redirect to welcome screen when not logged in and not guest
+  useEffect(() => {
+    if (!isReady) return;
+
+    const inTabs = segments[0] === '(tabs)';
+
+    if (!user && !guestMode && inTabs) {
+      SecureStore.getItemAsync(ONBOARDING_KEY).then((done) => {
+        if (done) {
+          router.replace('/welcome');
+        } else {
+          router.replace('/onboarding');
+        }
+      });
+    }
+  }, [user, isReady, guestMode, segments]);
 
   const login = useCallback(async (phone: string, password: string) => {
     const res = await authApi.login(phone, password);
@@ -49,10 +73,17 @@ export default function RootLayout() {
     // Register for push notifications after login
     const pushToken = await registerForPushNotifications();
     if (pushToken) await SecureStore.setItemAsync(PUSH_TOKEN_KEY, pushToken);
+    await SecureStore.deleteItemAsync(GUEST_MODE_KEY);
+    setGuestMode(false);
   }, []);
 
-  const signup = useCallback(async (fullName: string, phone: string, password: string, city: string) => {
-    const res = await authApi.signup(fullName, phone, password, city);
+  const signup = useCallback(async (fullName: string, phone: string, password: string, city: string, email?: string): Promise<string> => {
+    const res = await authApi.signup(fullName, phone, password, city, email);
+    return res.phone;
+  }, []);
+
+  const verifySignup = useCallback(async (phone: string, otp: string) => {
+    const res = await authApi.verifySignup(phone, otp);
     setAuthToken(res.token);
     setToken(res.token);
     setUser(res.user);
@@ -60,6 +91,8 @@ export default function RootLayout() {
     await SecureStore.setItemAsync(USER_KEY, JSON.stringify(res.user));
     const pushToken = await registerForPushNotifications();
     if (pushToken) await SecureStore.setItemAsync(PUSH_TOKEN_KEY, pushToken);
+    await SecureStore.deleteItemAsync(GUEST_MODE_KEY);
+    setGuestMode(false);
   }, []);
 
   const logout = useCallback(async () => {
@@ -73,6 +106,8 @@ export default function RootLayout() {
     setUser(null);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(USER_KEY);
+    await SecureStore.deleteItemAsync(GUEST_MODE_KEY);
+    setGuestMode(false);
   }, []);
 
   const updateUser = useCallback(async (data: { full_name: string; phone: string; city?: string }) => {
@@ -85,12 +120,17 @@ export default function RootLayout() {
     });
   }, []);
 
+  const enterGuestMode = useCallback(async () => {
+    await SecureStore.setItemAsync(GUEST_MODE_KEY, 'true');
+    setGuestMode(true);
+  }, []);
+
   if (!isReady) return null;
 
   return (
     <LanguageProvider>
     <AlertProvider>
-    <AuthContext.Provider value={{ user, token, login, signup, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, guestMode, login, signup, verifySignup, logout, updateUser, enterGuestMode }}>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -105,6 +145,10 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="onboarding"
+          options={{ animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="welcome"
           options={{ animation: 'fade' }}
         />
         <Stack.Screen
@@ -153,6 +197,14 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="help"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="terms"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="privacy"
           options={{ animation: 'slide_from_right' }}
         />
       </Stack>
