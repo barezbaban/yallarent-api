@@ -38,7 +38,11 @@ jobs:
         run: npm install
 
       - name: Run migrations
-        run: psql -f migrations/001_create_tables.sql
+        run: |
+          for f in migrations/*.sql; do
+            echo "Running $f..."
+            psql -f "$f"
+          done
         env:
           PGHOST: localhost
           PGPORT: 5432
