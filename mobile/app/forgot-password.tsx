@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import {
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -34,6 +36,12 @@ export default function ForgotPasswordScreen() {
   const [countryCode, setCountryCode] = useState(COUNTRY_CODES[0]);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const handlePhoneChange = (text: string) => {
+    const digits = text.replace(/[^0-9]/g, '');
+    const maxLen = digits.startsWith('0') ? 11 : 10;
+    setPhone(digits.slice(0, maxLen));
+  };
 
   const handleSubmit = async () => {
     if (!phone) {
@@ -66,6 +74,11 @@ export default function ForgotPasswordScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.content}
       >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+        >
         <Pressable onPress={() => router.back()} style={styles.backRow}>
           <Ionicons name="arrow-back" size={24} color={Colors.foreground} />
         </Pressable>
@@ -96,7 +109,10 @@ export default function ForgotPasswordScreen() {
               placeholderTextColor={Colors.foregroundMuted}
               keyboardType="phone-pad"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={handlePhoneChange}
+              maxLength={phone.startsWith('0') ? 11 : 10}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
               autoFocus
             />
           </View>
@@ -115,6 +131,7 @@ export default function ForgotPasswordScreen() {
         <Pressable onPress={() => router.back()} style={styles.backLink}>
           <Text style={styles.backLinkText}>Back to Login</Text>
         </Pressable>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <Modal visible={showCountryPicker} animationType="slide" transparent>
@@ -152,7 +169,8 @@ export default function ForgotPasswordScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surfacePrimary },
-  content: { flex: 1, paddingHorizontal: Spacing['2xl'] },
+  content: { flex: 1 },
+  scrollContent: { paddingHorizontal: Spacing['2xl'], paddingBottom: Spacing['3xl'] },
   backRow: { paddingVertical: Spacing.md },
   iconCircle: {
     width: 80, height: 80, borderRadius: 40,

@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -54,6 +56,13 @@ export default function LoginScreen() {
   const [city, setCity] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
+
+  const handlePhoneChange = (text: string) => {
+    const digits = text.replace(/[^0-9]/g, '');
+    const maxLen = digits.startsWith('0') ? 11 : 10;
+    setPhone(digits.slice(0, maxLen));
+  };
 
   const handleSubmit = async () => {
     if (!phone || !password) {
@@ -102,6 +111,11 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.content}
       >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+        >
         <Text style={styles.logo}>YallaRent</Text>
         <Text style={styles.tagline}>Rent a car. Anytime. Anywhere.</Text>
 
@@ -183,7 +197,10 @@ export default function LoginScreen() {
               placeholderTextColor={Colors.foregroundMuted}
               keyboardType="phone-pad"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={handlePhoneChange}
+              maxLength={phone.startsWith('0') ? 11 : 10}
+              returnKeyType="done"
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
           </View>
         </View>
@@ -193,12 +210,15 @@ export default function LoginScreen() {
         <View style={styles.inputContainer}>
           <Ionicons name="lock-closed-outline" size={20} color={Colors.foregroundMuted} />
           <TextInput
+            ref={passwordRef}
             style={styles.input}
             placeholder="Enter your password"
             placeholderTextColor={Colors.foregroundMuted}
             secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
           />
           <Pressable onPress={() => setShowPassword(!showPassword)}>
             <Ionicons
@@ -249,6 +269,7 @@ export default function LoginScreen() {
             </Text>
           </Text>
         )}
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Country Code Picker */}
@@ -333,8 +354,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: Spacing['2xl'],
     paddingTop: Spacing['3xl'],
+    paddingBottom: Spacing['3xl'],
   },
   logo: {
     fontSize: 28,
