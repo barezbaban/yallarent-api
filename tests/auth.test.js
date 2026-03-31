@@ -6,7 +6,7 @@ beforeAll(() => resetDatabase());
 afterAll(() => closeDatabase());
 
 describe('POST /api/auth/signup', () => {
-  it('creates a new user', async () => {
+  it('creates a new user and returns phone for OTP verification', async () => {
     const res = await request(app).post('/api/auth/signup').send({
       fullName: 'Test User',
       phone: '07501111111',
@@ -14,8 +14,8 @@ describe('POST /api/auth/signup', () => {
       city: 'Erbil',
     });
     expect(res.status).toBe(201);
-    expect(res.body.token).toBeDefined();
-    expect(res.body.user.full_name).toBe('Test User');
+    expect(res.body.phone).toBe('07501111111');
+    expect(res.body.message).toBeDefined();
   });
 
   it('rejects duplicate phone', async () => {
@@ -31,6 +31,33 @@ describe('POST /api/auth/signup', () => {
   it('rejects missing fields', async () => {
     const res = await request(app).post('/api/auth/signup').send({
       phone: '07502222222',
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/auth/verify-signup', () => {
+  it('verifies OTP and returns token', async () => {
+    const res = await request(app).post('/api/auth/verify-signup').send({
+      phone: '07501111111',
+      otp: '123456',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeDefined();
+    expect(res.body.user.full_name).toBe('Test User');
+  });
+
+  it('rejects invalid OTP', async () => {
+    // Sign up a new user to get a fresh OTP
+    await request(app).post('/api/auth/signup').send({
+      fullName: 'OTP Test',
+      phone: '07503333333',
+      password: 'Test1234',
+      city: 'Erbil',
+    });
+    const res = await request(app).post('/api/auth/verify-signup').send({
+      phone: '07503333333',
+      otp: '000000',
     });
     expect(res.status).toBe(400);
   });
