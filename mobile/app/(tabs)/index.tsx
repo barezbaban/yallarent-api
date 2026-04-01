@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { Calendar } from 'react-native-calendars';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import { IRAQ_CITIES } from '../../constants/cities';
 import { useCars } from '../../hooks/useCars';
@@ -427,36 +427,73 @@ export default function CarsScreen() {
         </View>
       </Modal>
 
-      {/* Date Pickers */}
-      {showPickupDate && (
-        <DateTimePicker
-          value={pickupDate}
-          mode="date"
-          minimumDate={new Date()}
-          onChange={(_, date) => {
-            setShowPickupDate(false);
-            if (date) {
-              setPickupDate(date);
-              if (date >= dropoffDate) {
-                const next = new Date(date);
-                next.setDate(next.getDate() + 1);
-                setDropoffDate(next);
-              }
-            }
-          }}
-        />
-      )}
-      {showDropoffDate && (
-        <DateTimePicker
-          value={dropoffDate}
-          mode="date"
-          minimumDate={new Date(pickupDate.getTime() + 86400000)}
-          onChange={(_, date) => {
-            setShowDropoffDate(false);
-            if (date) setDropoffDate(date);
-          }}
-        />
-      )}
+      {/* Pickup Date Calendar */}
+      <Modal visible={showPickupDate} animationType="slide" transparent>
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContent}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Pickup Date</Text>
+              <Pressable onPress={() => setShowPickupDate(false)}>
+                <Ionicons name="close" size={24} color={Colors.foreground} />
+              </Pressable>
+            </View>
+            <Calendar
+              minDate={new Date().toISOString().split('T')[0]}
+              markedDates={{
+                [pickupDate.toISOString().split('T')[0]]: { selected: true, selectedColor: Colors.primary },
+              }}
+              onDayPress={(day: { dateString: string }) => {
+                const selected = new Date(day.dateString + 'T00:00:00');
+                setPickupDate(selected);
+                if (selected >= dropoffDate) {
+                  const next = new Date(selected);
+                  next.setDate(next.getDate() + 1);
+                  setDropoffDate(next);
+                }
+                setShowPickupDate(false);
+              }}
+              theme={{
+                todayTextColor: Colors.primary,
+                arrowColor: Colors.primary,
+                selectedDayBackgroundColor: Colors.primary,
+                textDayFontWeight: '500',
+                textMonthFontWeight: 'bold',
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Dropoff Date Calendar */}
+      <Modal visible={showDropoffDate} animationType="slide" transparent>
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerContent}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Drop-off Date</Text>
+              <Pressable onPress={() => setShowDropoffDate(false)}>
+                <Ionicons name="close" size={24} color={Colors.foreground} />
+              </Pressable>
+            </View>
+            <Calendar
+              minDate={(() => { const d = new Date(pickupDate); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
+              markedDates={{
+                [dropoffDate.toISOString().split('T')[0]]: { selected: true, selectedColor: Colors.primary },
+              }}
+              onDayPress={(day: { dateString: string }) => {
+                setDropoffDate(new Date(day.dateString + 'T00:00:00'));
+                setShowDropoffDate(false);
+              }}
+              theme={{
+                todayTextColor: Colors.primary,
+                arrowColor: Colors.primary,
+                selectedDayBackgroundColor: Colors.primary,
+                textDayFontWeight: '500',
+                textMonthFontWeight: 'bold',
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
 
       {/* Time Picker Modals */}
       {[
