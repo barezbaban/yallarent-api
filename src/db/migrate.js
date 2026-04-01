@@ -45,14 +45,20 @@ async function runMigrations() {
     if (executedSet.has(file)) continue;
 
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+    const client = await pool.connect();
     try {
-      await pool.query(sql);
-      await pool.query('INSERT INTO _migrations (name) VALUES ($1)', [file]);
+      await client.query('BEGIN');
+      await client.query(sql);
+      await client.query('INSERT INTO _migrations (name) VALUES ($1)', [file]);
+      await client.query('COMMIT');
       console.log(`Migration applied: ${file}`);
       ranCount++;
     } catch (err) {
+      await client.query('ROLLBACK');
       console.error(`Migration failed: ${file}`, err.message);
       throw err;
+    } finally {
+      client.release();
     }
   }
 
