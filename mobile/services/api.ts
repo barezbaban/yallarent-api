@@ -52,6 +52,8 @@ export interface Car {
   created_at: string;
   company_name: string;
   company_city: string;
+  average_rating: number | null;
+  review_count: number;
   company_phone?: string;
   company_address?: string;
   images?: CarImage[];
@@ -75,6 +77,7 @@ export interface Booking {
   year?: number;
   image_url?: string;
   company_name?: string;
+  has_review?: boolean;
 }
 
 export interface AuthResponse {
@@ -196,4 +199,51 @@ export const bookingsApi = {
     }),
   cancel: (id: string) =>
     request<Booking>(`/bookings/${id}/cancel`, { method: 'PATCH' }),
+};
+
+export interface Review {
+  id: string;
+  booking_id: string;
+  car_id: string;
+  user_id: string;
+  rating: number;
+  review_text: string;
+  created_at: string;
+  reviewer_name: string;
+}
+
+export interface CarReviewsResponse {
+  reviews: Review[];
+  averageRating: number | null;
+  reviewCount: number;
+}
+
+export const reviewsApi = {
+  getByCarId: (carId: string, page = 1, limit = 10) =>
+    request<CarReviewsResponse>(`/reviews/car/${carId}?page=${page}&limit=${limit}`),
+  create: (data: { bookingId: string; rating: number; reviewText?: string }) =>
+    request<Review>('/reviews', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
+export interface SupportMessage {
+  id: string;
+  conversation_id: string;
+  sender_type: 'user' | 'support';
+  message: string;
+  created_at: string;
+}
+
+export const supportApi = {
+  getConversation: () =>
+    request<{ id: string; user_id: string; status: string }>('/support/conversation'),
+  getMessages: (page = 1, limit = 50) =>
+    request<SupportMessage[]>(`/support/conversation/messages?page=${page}&limit=${limit}`),
+  sendMessage: (message: string) =>
+    request<SupportMessage>('/support/conversation/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
 };

@@ -59,6 +59,12 @@ export default function HelpScreen() {
         <Text style={styles.sectionTitle}>{t('help.contactUs')}</Text>
         <View style={styles.section}>
           <ContactRow
+            icon="chatbubble-ellipses-outline"
+            label="Live Chat"
+            value="Chat with our support team"
+            onPress={() => router.push('/support-chat')}
+          />
+          <ContactRow
             icon="call-outline"
             label={t('help.phone')}
             value="+964 750 000 0000"

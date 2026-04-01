@@ -215,6 +215,14 @@ export default function RootLayout() {
           name="privacy"
           options={{ animation: 'slide_from_right' }}
         />
+        <Stack.Screen
+          name="write-review"
+          options={{ animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen
+          name="support-chat"
+          options={{ animation: 'slide_from_right' }}
+        />
       </Stack>
     </AuthContext.Provider>
     </AlertProvider>

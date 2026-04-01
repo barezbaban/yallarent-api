@@ -45,7 +45,8 @@ async function create({ carId, renterId, startDate, endDate, totalPrice, pickupT
 
 async function findByRenter(renterId) {
   const { rows } = await pool.query(
-    `SELECT b.*, c.make, c.model, c.year, c.image_url, co.name AS company_name
+    `SELECT b.*, c.make, c.model, c.year, c.image_url, co.name AS company_name,
+            (SELECT COUNT(*)::int FROM reviews r WHERE r.booking_id = b.id) > 0 AS has_review
      FROM bookings b
      JOIN cars c ON b.car_id = c.id
      JOIN companies co ON c.company_id = co.id

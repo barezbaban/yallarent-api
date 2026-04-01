@@ -11,7 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
-import { Car, carsApi, favoritesApi } from '../../services/api';
+import { Car, Review, carsApi, favoritesApi, reviewsApi } from '../../services/api';
 import { useAuth } from '../../services/auth';
 import ImageCarousel from '../../components/ImageCarousel';
 
@@ -24,6 +24,7 @@ export default function CarDetailScreen() {
   const [car, setCar] = useState<Car | null>(null);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -34,6 +35,11 @@ export default function CarDetailScreen() {
     if (!user || !id) return;
     favoritesApi.getIds().then((ids) => setIsFavorite(ids.includes(id))).catch(() => {});
   }, [user, id]);
+
+  useEffect(() => {
+    if (!id) return;
+    reviewsApi.getByCarId(id, 1, 5).then((data) => setReviews(data.reviews)).catch(() => {});
+  }, [id]);
 
   const toggleFavorite = async () => {
     if (!user) return;
@@ -66,9 +72,9 @@ export default function CarDetailScreen() {
   }
 
   const specs = [
-    { icon: 'sync-outline' as const, label: 'Automatic' },
-    { icon: 'people-outline' as const, label: '5 Seats' },
-    { icon: 'water-outline' as const, label: 'Petrol' },
+    { icon: 'sync-outline' as const, label: car.transmission === 'manual' ? 'Manual' : 'Automatic' },
+    { icon: 'people-outline' as const, label: `${car.passengers || 5} Seats` },
+    { icon: 'briefcase-outline' as const, label: `${car.luggage || 2} Bags` },
     { icon: 'location-outline' as const, label: car.city },
   ];
 
@@ -110,6 +116,13 @@ export default function CarDetailScreen() {
                 <Ionicons name="business-outline" size={14} color={Colors.foregroundSecondary} />
                 <Text style={styles.company}>{car.company_name}</Text>
               </View>
+              {car.review_count > 0 && (
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={16} color={Colors.amber} />
+                  <Text style={styles.ratingValue}>{car.average_rating?.toFixed(1)}</Text>
+                  <Text style={styles.ratingCount}>({car.review_count} {car.review_count === 1 ? 'review' : 'reviews'})</Text>
+                </View>
+              )}
             </View>
             <View style={styles.priceBlock}>
               <Text style={styles.price}>{car.price_per_day.toLocaleString()}</Text>
@@ -143,6 +156,42 @@ export default function CarDetailScreen() {
               <Text style={styles.locationValue}>{car.company_name}, {car.city}</Text>
             </View>
           </View>
+
+          {/* Reviews Section */}
+          <Text style={styles.sectionTitle}>
+            Reviews {car.review_count > 0 ? `(${car.review_count})` : ''}
+          </Text>
+          {reviews.length === 0 ? (
+            <Text style={styles.description}>No reviews yet</Text>
+          ) : (
+            reviews.map((review) => (
+              <View key={review.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeader}>
+                  <Text style={styles.reviewerName}>{review.reviewer_name}</Text>
+                  <View style={styles.reviewStars}>
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Ionicons
+                        key={s}
+                        name={s <= review.rating ? 'star' : 'star-outline'}
+                        size={14}
+                        color={Colors.amber}
+                      />
+                    ))}
+                  </View>
+                </View>
+                {review.review_text ? (
+                  <Text style={styles.reviewText}>{review.review_text}</Text>
+                ) : null}
+                <Text style={styles.reviewDate}>
+                  {new Date(review.created_at).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
 
@@ -298,6 +347,52 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontWeight: FontWeight.semibold,
     color: Colors.foreground,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: Spacing.xs,
+  },
+  ratingValue: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.bold,
+    color: Colors.foreground,
+  },
+  ratingCount: {
+    fontSize: FontSize.body,
+    color: Colors.foregroundMuted,
+  },
+  reviewCard: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: Radius.button,
+    padding: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  reviewerName: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  reviewStars: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  reviewText: {
+    fontSize: FontSize.body,
+    color: Colors.foregroundSecondary,
+    lineHeight: 20,
+    marginBottom: Spacing.xs,
+  },
+  reviewDate: {
+    fontSize: FontSize.caption,
+    color: Colors.foregroundMuted,
   },
   bottomBar: {
     position: 'absolute',
