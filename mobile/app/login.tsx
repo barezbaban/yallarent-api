@@ -169,6 +169,21 @@ export default function LoginScreen() {
               />
             </View>
 
+            <Text style={styles.label}>Email</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="mail-outline" size={20} color={Colors.foregroundMuted} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor={Colors.foregroundMuted}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            <Text style={styles.emailHint}>We'll send your verification code here</Text>
+
             <Text style={styles.label}>{t('login.city')}</Text>
             <Pressable style={styles.inputContainer} onPress={() => setShowCityPicker(true)}>
               <Ionicons name="location-outline" size={20} color={Colors.foregroundMuted} />
@@ -177,20 +192,6 @@ export default function LoginScreen() {
               </Text>
               <Ionicons name="chevron-down" size={16} color={Colors.foregroundMuted} />
             </Pressable>
-
-            <Text style={styles.label}>{t('login.email')}</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color={Colors.foregroundMuted} />
-              <TextInput
-                style={styles.input}
-                placeholder={t('login.emailPlaceholder')}
-                placeholderTextColor={Colors.foregroundMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
           </>
         )}
 
@@ -435,6 +436,11 @@ const styles = StyleSheet.create({
     color: Colors.foreground,
     marginBottom: Spacing.sm,
     marginTop: Spacing.lg,
+  },
+  emailHint: {
+    fontSize: 12,
+    color: Colors.primary,
+    marginTop: 4,
   },
   inputContainer: {
     flexDirection: 'row',

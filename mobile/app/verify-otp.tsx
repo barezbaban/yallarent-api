@@ -101,8 +101,10 @@ export default function VerifyOtpScreen() {
 
         <Text style={styles.title}>Enter Verification Code</Text>
         <Text style={styles.subtitle}>
-          We sent a 6-digit code to{'\n'}
-          <Text style={styles.phoneHighlight}>{maskedPhone}</Text>
+          {isSignupFlow
+            ? <>We sent a 6-digit code to your email.{'\n'}Check your inbox (and spam folder).</>
+            : <>We sent a 6-digit code to{'\n'}<Text style={styles.phoneHighlight}>{maskedPhone}</Text></>
+          }
         </Text>
 
         <View style={styles.codeRow}>
