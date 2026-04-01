@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Modal,
   Pressable,
@@ -11,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Calendar } from 'react-native-calendars';
@@ -61,6 +62,13 @@ function formatTime12(t24: string): string {
   if (h === 0) h = 12;
   else if (h > 12) h -= 12;
   return `${h}:${mStr} ${suffix}`;
+}
+
+function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function formatDate(date: Date): string {
@@ -113,6 +121,36 @@ export default function CarsScreen() {
   const activeFilterCount =
     (cityFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (minPrice || maxPrice ? 1 : 0) +
     (transmissionFilter ? 1 : 0) + (passengersFilter ? 1 : 0) + (luggageFilter ? 1 : 0);
+
+  // Sticky compact search bar
+  const insets = useSafeAreaInsets();
+  const flatListRef = useRef<FlatList>(null);
+  const formCardBottom = useRef(0);
+  const stickyOpacity = useRef(new Animated.Value(0)).current;
+  const [stickyVisible, setStickyVisible] = useState(false);
+
+  const onMainScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const threshold = formCardBottom.current;
+    if (threshold <= 0) return;
+    const shouldShow = y > threshold;
+    setStickyVisible((prev) => {
+      if (shouldShow === prev) return prev;
+      Animated.timing(stickyOpacity, {
+        toValue: shouldShow ? 1 : 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      return shouldShow;
+    });
+  }, []);
+
+  const scrollToTop = () => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
+  const stickyDateLabel = `${pickupDate.toLocaleDateString('en', { month: 'short', day: 'numeric' })} – ${dropoffDate.toLocaleDateString('en', { month: 'short', day: 'numeric' })}`;
+  const stickyLabel = [selectedCity || 'All Cities', stickyDateLabel].join('  ·  ');
 
   const { cars, loading, loadingMore, refreshing, error, refetch, onRefresh, loadMore } = useCars({
     city: cityFilter,
@@ -212,6 +250,7 @@ export default function CarsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
+        ref={flatListRef}
         data={loading ? [] : cars}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
@@ -221,6 +260,8 @@ export default function CarsScreen() {
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        onScroll={onMainScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
@@ -252,7 +293,13 @@ export default function CarsScreen() {
             </View>
 
             {/* Booking Form Card */}
-            <View style={styles.formCard}>
+            <View
+              style={styles.formCard}
+              onLayout={(e) => {
+                const { y, height } = e.nativeEvent.layout;
+                formCardBottom.current = y + height;
+              }}
+            >
               {/* City */}
               <Pressable style={styles.formField} onPress={() => setShowCityPicker(true)}>
                 <Ionicons name="location" size={20} color={Colors.primary} />
@@ -382,6 +429,45 @@ export default function CarsScreen() {
         }
       />
 
+      {/* Floating Search Pill */}
+      <Animated.View
+        pointerEvents={stickyVisible ? 'auto' : 'none'}
+        style={[
+          styles.floatingPill,
+          {
+            top: insets.top + 8,
+            opacity: stickyOpacity,
+            transform: [{
+              translateY: stickyOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-30, 0],
+              }),
+            }, {
+              scale: stickyOpacity.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.9, 1],
+              }),
+            }],
+          },
+        ]}
+      >
+        <Pressable style={styles.pillInner} onPress={scrollToTop}>
+          <View style={styles.pillIcon}>
+            <Ionicons name="search" size={16} color={Colors.primary} />
+          </View>
+          <View style={styles.pillContent}>
+            <Text style={styles.pillCity} numberOfLines={1}>{selectedCity || 'All Cities'}</Text>
+            <Text style={styles.pillDates} numberOfLines={1}>
+              {stickyDateLabel}
+              {activeFilterCount > 0 ? `  ·  ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''}` : ''}
+            </Text>
+          </View>
+          <View style={styles.pillAction}>
+            <Ionicons name="options-outline" size={16} color={Colors.foregroundSecondary} />
+          </View>
+        </Pressable>
+      </Animated.View>
+
       {/* ===== MODALS ===== */}
 
       {/* City Picker */}
@@ -438,9 +524,9 @@ export default function CarsScreen() {
               </Pressable>
             </View>
             <Calendar
-              minDate={new Date().toISOString().split('T')[0]}
+              minDate={toLocalDateStr(new Date())}
               markedDates={{
-                [pickupDate.toISOString().split('T')[0]]: { selected: true, selectedColor: Colors.primary },
+                [toLocalDateStr(pickupDate)]: { selected: true, selectedColor: Colors.primary },
               }}
               onDayPress={(day: { dateString: string }) => {
                 const selected = new Date(day.dateString + 'T00:00:00');
@@ -475,9 +561,9 @@ export default function CarsScreen() {
               </Pressable>
             </View>
             <Calendar
-              minDate={(() => { const d = new Date(pickupDate); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })()}
+              minDate={(() => { const d = new Date(pickupDate); d.setDate(d.getDate() + 1); return toLocalDateStr(d); })()}
               markedDates={{
-                [dropoffDate.toISOString().split('T')[0]]: { selected: true, selectedColor: Colors.primary },
+                [toLocalDateStr(dropoffDate)]: { selected: true, selectedColor: Colors.primary },
               }}
               onDayPress={(day: { dateString: string }) => {
                 setDropoffDate(new Date(day.dateString + 'T00:00:00'));
@@ -708,6 +794,57 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: Spacing['3xl'],
+  },
+  // Floating search pill
+  floatingPill: {
+    position: 'absolute',
+    left: Spacing.lg,
+    right: Spacing.lg,
+    zIndex: 10,
+    backgroundColor: '#FFF',
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  pillInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 12,
+  },
+  pillIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.tealLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillContent: {
+    flex: 1,
+  },
+  pillCity: {
+    fontSize: 14,
+    fontWeight: FontWeight.bold,
+    color: Colors.foreground,
+  },
+  pillDates: {
+    fontSize: 12,
+    color: Colors.foregroundMuted,
+    marginTop: 1,
+  },
+  pillAction: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Hero
   heroSection: {

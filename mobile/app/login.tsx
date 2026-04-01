@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
@@ -43,6 +43,7 @@ const COUNTRY_CODES = [
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { login, signup } = useAuth();
   const { showAlert } = useAlert();
   const [tab, setTab] = useState<Tab>('login');
@@ -96,12 +97,12 @@ export default function LoginScreen() {
     try {
       if (tab === 'login') {
         await login(cleanPhone, password);
-        router.replace('/');
+        router.replace(returnTo || '/');
       } else {
         await signup(fullName, cleanPhone, password, city, email || undefined);
         router.push({
           pathname: '/verify-otp',
-          params: { phone: cleanPhone, flow: 'signup' },
+          params: { phone: cleanPhone, flow: 'signup', returnTo: returnTo || '' },
         });
       }
     } catch (err: any) {
@@ -109,7 +110,7 @@ export default function LoginScreen() {
       if (err.message?.includes('not verified')) {
         router.push({
           pathname: '/verify-otp',
-          params: { phone: cleanPhone, flow: 'signup' },
+          params: { phone: cleanPhone, flow: 'signup', returnTo: returnTo || '' },
         });
         return;
       }

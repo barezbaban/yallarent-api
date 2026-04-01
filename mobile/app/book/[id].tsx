@@ -30,7 +30,10 @@ function formatDate(date: Date): string {
 }
 
 function toDateString(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function daysBetween(start: Date, end: Date): number {
@@ -69,7 +72,6 @@ export default function BookScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [selectingField, setSelectingField] = useState<'start' | 'end'>('start');
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -108,24 +110,22 @@ export default function BookScreen() {
 
   const handleDayPress = (day: DateData) => {
     const selected = new Date(day.dateString + 'T00:00:00');
-    if (selectingField === 'start') {
+    if (!startDate || (startDate && endDate)) {
+      // First tap or both already selected → start fresh
       setStartDate(selected);
-      if (endDate && selected >= endDate) {
-        setEndDate(null);
-      }
-      setSelectingField('end');
+      setEndDate(null);
     } else {
-      if (startDate && selected <= startDate) {
+      // Second tap — set end date
+      if (selected <= startDate) {
+        // Tapped before start → swap: this becomes start
         setStartDate(selected);
-        setEndDate(null);
-        setSelectingField('end');
       } else {
         setEndDate(selected);
-        setShowCalendar(false);
-        setSelectingField('start');
       }
     }
   };
+
+  const calendarDays = startDate && endDate ? daysBetween(startDate, endDate) : 0;
 
   const handleConfirm = async () => {
     if (!startDate || !endDate) {
@@ -140,7 +140,7 @@ export default function BookScreen() {
         type: 'confirm',
         buttons: [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Log In', onPress: () => router.push('/login') },
+          { text: 'Log In', onPress: () => router.push({ pathname: '/login', params: { returnTo: `/book/${id}` } }) },
         ],
       });
       return;
@@ -217,44 +217,49 @@ export default function BookScreen() {
 
         {/* Date Selection */}
         <Text style={styles.sectionTitle}>Select Dates</Text>
-        <View style={styles.dateRow}>
-          <Pressable
-            style={[styles.dateBox, selectingField === 'start' && showCalendar && styles.dateBoxActive]}
-            onPress={() => { setSelectingField('start'); setShowCalendar(true); }}
-          >
-            <Text style={styles.dateLabel}>Start Date</Text>
-            <View style={styles.dateValue}>
-              <Ionicons name="calendar-outline" size={16} color={startDate ? Colors.primary : Colors.foregroundMuted} />
-              <Text style={[styles.dateText, !startDate && styles.datePlaceholder]}>
-                {startDate ? formatDate(startDate) : 'Pick date'}
-              </Text>
+        <Pressable style={styles.dateCard} onPress={() => setShowCalendar(true)}>
+          <View style={styles.dateCardRow}>
+            <View style={styles.dateCardCol}>
+              <Text style={styles.dateLabel}>Pickup</Text>
+              <View style={styles.dateValue}>
+                <Ionicons name="calendar-outline" size={16} color={startDate ? Colors.primary : Colors.foregroundMuted} />
+                <Text style={[styles.dateText, !startDate && styles.datePlaceholder]}>
+                  {startDate ? formatDate(startDate) : 'Select date'}
+                </Text>
+              </View>
             </View>
-          </Pressable>
-          <Pressable
-            style={[styles.dateBox, selectingField === 'end' && showCalendar && styles.dateBoxActive]}
-            onPress={() => { setSelectingField('end'); setShowCalendar(true); }}
-          >
-            <Text style={styles.dateLabel}>End Date</Text>
-            <View style={styles.dateValue}>
-              <Ionicons name="calendar-outline" size={16} color={endDate ? Colors.primary : Colors.foregroundMuted} />
-              <Text style={[styles.dateText, !endDate && styles.datePlaceholder]}>
-                {endDate ? formatDate(endDate) : 'Pick date'}
-              </Text>
+            <View style={styles.dateCardDivider}>
+              <Ionicons name="arrow-forward" size={16} color={Colors.foregroundMuted} />
             </View>
-          </Pressable>
-        </View>
+            <View style={styles.dateCardCol}>
+              <Text style={styles.dateLabel}>Dropoff</Text>
+              <View style={styles.dateValue}>
+                <Ionicons name="calendar-outline" size={16} color={endDate ? Colors.primary : Colors.foregroundMuted} />
+                <Text style={[styles.dateText, !endDate && styles.datePlaceholder]}>
+                  {endDate ? formatDate(endDate) : 'Select date'}
+                </Text>
+              </View>
+            </View>
+          </View>
+          {startDate && endDate && (
+            <View style={styles.dateCardBadge}>
+              <Ionicons name="moon-outline" size={13} color={Colors.primary} />
+              <Text style={styles.dateCardBadgeText}>{calendarDays} day{calendarDays !== 1 ? 's' : ''}</Text>
+            </View>
+          )}
+        </Pressable>
 
         {/* Select Times */}
         <Text style={styles.sectionTitle}>Select Times</Text>
         <View style={styles.dateRow}>
-          <Pressable style={styles.dateBox} onPress={() => setShowPickupTime(true)}>
+          <Pressable style={styles.timeBox} onPress={() => setShowPickupTime(true)}>
             <Text style={styles.dateLabel}>Pickup Time</Text>
             <View style={styles.dateValue}>
               <Ionicons name="time-outline" size={16} color={Colors.primary} />
               <Text style={styles.dateText}>{to12h(pickupTime)}</Text>
             </View>
           </Pressable>
-          <Pressable style={styles.dateBox} onPress={() => setShowDropoffTime(true)}>
+          <Pressable style={styles.timeBox} onPress={() => setShowDropoffTime(true)}>
             <Text style={styles.dateLabel}>Dropoff Time</Text>
             <View style={styles.dateValue}>
               <Ionicons name="time-outline" size={16} color={Colors.primary} />
@@ -365,13 +370,29 @@ export default function BookScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {selectingField === 'start' ? 'Select Start Date' : 'Select End Date'}
-              </Text>
+              <Text style={styles.modalTitle}>Select Dates</Text>
               <Pressable onPress={() => setShowCalendar(false)}>
                 <Ionicons name="close" size={24} color={Colors.foreground} />
               </Pressable>
             </View>
+
+            {/* Step indicator */}
+            <View style={styles.calendarSteps}>
+              <View style={[styles.calendarStep, !startDate && styles.calendarStepActive]}>
+                <View style={[styles.calendarStepDot, startDate ? styles.calendarStepDotDone : styles.calendarStepDotActive]} />
+                <Text style={[styles.calendarStepText, startDate && styles.calendarStepTextDone]}>
+                  {startDate ? formatDate(startDate) : 'Select pickup'}
+                </Text>
+              </View>
+              <View style={styles.calendarStepLine} />
+              <View style={[styles.calendarStep, startDate && !endDate && styles.calendarStepActive]}>
+                <View style={[styles.calendarStepDot, endDate ? styles.calendarStepDotDone : (startDate && !endDate) ? styles.calendarStepDotActive : {}]} />
+                <Text style={[styles.calendarStepText, endDate && styles.calendarStepTextDone]}>
+                  {endDate ? formatDate(endDate) : 'Select dropoff'}
+                </Text>
+              </View>
+            </View>
+
             <Calendar
               minDate={toDateString(tomorrow)}
               markedDates={getMarkedDates(startDate, endDate)}
@@ -386,6 +407,27 @@ export default function BookScreen() {
                 textDayHeaderFontSize: 13,
               }}
             />
+
+            {/* Bottom actions */}
+            <View style={styles.calendarBottom}>
+              {startDate && endDate && (
+                <Text style={styles.calendarSummary}>
+                  {calendarDays} day{calendarDays !== 1 ? 's' : ''} selected
+                </Text>
+              )}
+              <View style={styles.calendarActions}>
+                <Pressable style={styles.calendarClearBtn} onPress={() => { setStartDate(null); setEndDate(null); }}>
+                  <Text style={styles.calendarClearText}>Clear</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.calendarConfirmBtn, (!startDate || !endDate) && { opacity: 0.4 }]}
+                  onPress={() => { if (startDate && endDate) setShowCalendar(false); }}
+                  disabled={!startDate || !endDate}
+                >
+                  <Text style={styles.calendarConfirmText}>Confirm Dates</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
@@ -458,16 +500,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.md,
   },
-  dateBox: {
+  dateCard: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.card,
+    padding: Spacing.lg,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  dateCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateCardCol: {
+    flex: 1,
+  },
+  dateCardDivider: {
+    paddingHorizontal: Spacing.md,
+  },
+  dateCardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  dateCardBadgeText: {
+    fontSize: 13,
+    fontWeight: FontWeight.semibold,
+    color: Colors.primary,
+  },
+  timeBox: {
     flex: 1,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.button,
     padding: Spacing.md,
-  },
-  dateBoxActive: {
-    borderColor: Colors.primary,
-    borderWidth: 2,
   },
   dateLabel: {
     fontSize: FontSize.caption,
@@ -602,5 +672,87 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sectionHeader,
     fontWeight: FontWeight.semibold,
     color: Colors.foreground,
+  },
+  // Calendar step indicator
+  calendarSteps: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+  calendarStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  calendarStepActive: {},
+  calendarStepDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.border,
+  },
+  calendarStepDotActive: {
+    backgroundColor: Colors.primary,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  calendarStepDotDone: {
+    backgroundColor: Colors.success,
+  },
+  calendarStepText: {
+    fontSize: 13,
+    color: Colors.foregroundMuted,
+  },
+  calendarStepTextDone: {
+    color: Colors.foreground,
+    fontWeight: FontWeight.semibold,
+  },
+  calendarStepLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+    marginHorizontal: Spacing.md,
+  },
+  calendarBottom: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  calendarSummary: {
+    fontSize: 14,
+    fontWeight: FontWeight.semibold,
+    color: Colors.primary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  calendarActions: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  calendarClearBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: Radius.button,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  calendarClearText: {
+    fontSize: FontSize.button,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  calendarConfirmBtn: {
+    flex: 2,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: Radius.button,
+    backgroundColor: Colors.primary,
+  },
+  calendarConfirmText: {
+    fontSize: FontSize.button,
+    fontWeight: FontWeight.semibold,
+    color: '#FFF',
   },
 });

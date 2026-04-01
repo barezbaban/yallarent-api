@@ -1,5 +1,7 @@
 const bookingQueries = require('../db/bookingQueries');
 const carQueries = require('../db/carQueries');
+const userQueries = require('../db/userQueries');
+const emailService = require('../services/email');
 
 async function create(req, res) {
   try {
@@ -29,6 +31,18 @@ async function create(req, res) {
 
     if (result.conflict) {
       return res.status(409).json({ error: result.reason });
+    }
+
+    // Send booking receipt via email
+    if (emailService.isConfigured()) {
+      const user = await userQueries.findById(renterId);
+      if (user && user.email) {
+        emailService.sendBookingReceipt(user.email, {
+          ...result.booking,
+          car_name: `${car.make} ${car.model} ${car.year}`,
+          company_name: car.company_name,
+        }).catch((err) => console.error('[Email] Receipt send failed:', err.message));
+      }
     }
 
     res.status(201).json(result.booking);
