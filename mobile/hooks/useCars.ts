@@ -7,6 +7,7 @@ export function useCars(filters?: { city?: string; max_price?: number; min_price
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchCars = useCallback(async (pageNum = 1, append = false) => {
@@ -46,5 +47,11 @@ export function useCars(filters?: { city?: string; max_price?: number; min_price
     }
   }, [fetchCars, page, totalPages, loadingMore]);
 
-  return { cars, loading, loadingMore, error, refetch: () => fetchCars(1, false), loadMore, hasMore: page < totalPages };
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchCars(1, false);
+    setRefreshing(false);
+  }, [fetchCars]);
+
+  return { cars, loading, loadingMore, refreshing, error, refetch: () => fetchCars(1, false), onRefresh, loadMore, hasMore: page < totalPages };
 }

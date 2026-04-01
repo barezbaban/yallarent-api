@@ -4,6 +4,7 @@ import {
   FlatList,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -104,7 +105,7 @@ export default function CarsScreen() {
   const activeFilterCount =
     (cityFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (minPrice || maxPrice ? 1 : 0);
 
-  const { cars, loading, loadingMore, error, refetch, loadMore } = useCars({
+  const { cars, loading, loadingMore, refreshing, error, refetch, onRefresh, loadMore } = useCars({
     city: cityFilter,
     category: categoryFilter,
     min_price: minPrice,
@@ -113,6 +114,7 @@ export default function CarsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      refetch();
       if (user) {
         notificationsApi.unreadCount().then((r) => setUnreadCount(r.count)).catch(() => {});
       }
@@ -165,6 +167,9 @@ export default function CarsScreen() {
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         ListFooterComponent={
