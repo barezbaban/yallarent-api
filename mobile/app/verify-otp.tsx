@@ -22,7 +22,7 @@ export default function VerifyOtpScreen() {
   const router = useRouter();
   const { verifySignup } = useAuth();
   const { showAlert } = useAlert();
-  const { phone, flow } = useLocalSearchParams<{ phone: string; flow?: string }>();
+  const { phone, flow, returnTo } = useLocalSearchParams<{ phone: string; flow?: string; returnTo?: string }>();
   const isSignupFlow = flow === 'signup';
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
@@ -59,7 +59,7 @@ export default function VerifyOtpScreen() {
     try {
       if (isSignupFlow) {
         await verifySignup(phone!, otp);
-        router.replace('/');
+        router.replace(returnTo || '/');
       } else {
         const { resetToken } = await passwordApi.verifyOtp(phone!, otp);
         router.push({

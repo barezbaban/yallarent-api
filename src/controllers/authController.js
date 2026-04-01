@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userQueries = require('../db/userQueries');
 const { jwtSecret } = require('../config/env');
+const email = require('../services/email');
 
 async function signup(req, res) {
   try {
@@ -21,9 +22,14 @@ async function signup(req, res) {
     await userQueries.create({ fullName, phone, email, passwordHash, city });
 
     // Store OTP for verification
-    resetTokens.set(phone, { otp: DEFAULT_OTP, expires: Date.now() + 10 * 60 * 1000 });
+    const otp = generateOtp();
+    resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
 
-    // TODO: Send OTP via WhatsApp/SMS here
+    // Send OTP via email if user provided one
+    if (email.isConfigured() && req.body.email) {
+      email.sendOtp(req.body.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+    }
+
     res.status(201).json({ message: 'Account created. Please verify your phone number.', phone });
   } catch (err) {
     res.status(500).json({ error: 'Failed to create account' });
@@ -87,7 +93,11 @@ async function login(req, res) {
     // Check if account is verified
     if (user.is_verified === false) {
       // Re-send OTP
-      resetTokens.set(phone, { otp: DEFAULT_OTP, expires: Date.now() + 10 * 60 * 1000 });
+      const otp = generateOtp();
+      resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
+      if (email.isConfigured() && user.email) {
+        email.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+      }
       return res.status(403).json({ error: 'Account not verified', phone, requiresVerification: true });
     }
 
@@ -121,8 +131,10 @@ async function updateProfile(req, res) {
   }
 }
 
-// Default OTP code — replace with real SMS/WhatsApp provider later
-const DEFAULT_OTP = '123456';
+// Generate a random 6-digit OTP
+function generateOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
 
 // In-memory store for reset tokens (swap for Redis/DB in production)
 const resetTokens = new Map();
@@ -137,9 +149,14 @@ async function requestReset(req, res) {
     }
 
     // Store OTP with 10-minute expiry
-    resetTokens.set(phone, { otp: DEFAULT_OTP, expires: Date.now() + 10 * 60 * 1000 });
+    const otp = generateOtp();
+    resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
 
-    // TODO: Send OTP via WhatsApp/SMS here
+    // Send OTP via email
+    if (email.isConfigured() && user.email) {
+      email.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+    }
+
     res.json({ message: 'If this phone is registered, you will receive a code' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to process request' });

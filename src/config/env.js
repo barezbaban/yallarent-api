@@ -15,4 +15,5 @@ module.exports = {
   allowedOrigins: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')
     : [],
+  resendApiKey: process.env.RESEND_API_KEY,
 };
