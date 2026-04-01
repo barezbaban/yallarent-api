@@ -1,4 +1,4 @@
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id UUID NOT NULL UNIQUE REFERENCES bookings(id),
   car_id UUID NOT NULL REFERENCES cars(id),
@@ -8,5 +8,5 @@ CREATE TABLE reviews (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_reviews_car_id ON reviews(car_id);
-CREATE INDEX idx_reviews_user_id ON reviews(user_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_car_id ON reviews(car_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON reviews(user_id);

@@ -17,6 +17,9 @@ const supportRoutes = require('./routes/supportRoutes');
 
 const app = express();
 
+// Trust Railway's reverse proxy so rate limiter gets real client IPs
+app.set('trust proxy', 1);
+
 app.use(helmet());
 if (nodeEnv !== 'test') {
   app.use(morgan('combined'));
