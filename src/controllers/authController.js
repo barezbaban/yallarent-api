@@ -131,8 +131,9 @@ async function updateProfile(req, res) {
   }
 }
 
-// Generate a random 6-digit OTP
+// Generate a random 6-digit OTP (fixed in test for deterministic tests)
 function generateOtp() {
+  if (process.env.NODE_ENV === 'test') return '123456';
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
