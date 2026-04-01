@@ -1,14 +1,17 @@
 const app = require('./app');
-const { port } = require('./config/env');
+const { port, nodeEnv } = require('./config/env');
 const { runMigrations } = require('./db/migrate');
 
-runMigrations()
-  .then(() => {
-    app.listen(port, () => {
-      console.log(`YallaRent API running on port ${port}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Failed to run migrations:', err);
-    process.exit(1);
+async function start() {
+  if (nodeEnv !== 'test') {
+    await runMigrations();
+  }
+  app.listen(port, () => {
+    console.log(`YallaRent API running on port ${port}`);
   });
+}
+
+start().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
