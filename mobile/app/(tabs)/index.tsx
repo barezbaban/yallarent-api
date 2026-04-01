@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Modal,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -30,6 +30,28 @@ for (let h = 6; h <= 22; h++) {
   TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:00`);
   if (h < 22) TIME_SLOTS.push(`${h.toString().padStart(2, '0')}:30`);
 }
+
+const CAR_CATEGORIES = [
+  { key: '', label: 'All', icon: 'apps-outline' as const },
+  { key: 'sedan', label: 'Sedan', icon: 'car-outline' as const },
+  { key: 'suv', label: 'SUV', icon: 'car-sport-outline' as const },
+  { key: 'pickup', label: 'Pickup', icon: 'bus-outline' as const },
+  { key: 'luxury', label: 'Luxury', icon: 'diamond-outline' as const },
+  { key: 'exotic', label: 'Exotic', icon: 'flame-outline' as const },
+  { key: 'classic', label: 'Classic', icon: 'time-outline' as const },
+  { key: 'limousine', label: 'Limousine', icon: 'train-outline' as const },
+  { key: 'economy', label: 'Economy', icon: 'wallet-outline' as const },
+  { key: 'van', label: 'Van', icon: 'people-outline' as const },
+];
+
+const PRICE_RANGES = [
+  { key: '', label: 'Any Price', min: undefined, max: undefined },
+  { key: 'under50', label: 'Under 50K', min: undefined, max: 50000 },
+  { key: '50to75', label: '50K - 75K', min: 50000, max: 75000 },
+  { key: '75to100', label: '75K - 100K', min: 75000, max: 100000 },
+  { key: '100to150', label: '100K - 150K', min: 100000, max: 150000 },
+  { key: 'over150', label: '150K+', min: 150000, max: undefined },
+];
 
 function formatTime12(t24: string): string {
   const [hStr, mStr] = t24.split(':');
@@ -67,11 +89,27 @@ export default function CarsScreen() {
   const [showDropoffDate, setShowDropoffDate] = useState(false);
   const [showPickupTime, setShowPickupTime] = useState(false);
   const [showDropoffTime, setShowDropoffTime] = useState(false);
-  const [cityFilter, setCityFilter] = useState<string | undefined>(undefined);
+  const [showFilters, setShowFilters] = useState(false);
 
-  const { cars, loading, loadingMore, error, refetch, loadMore, hasMore } = useCars(
-    { city: cityFilter }
-  );
+  // Filter state (applied)
+  const [cityFilter, setCityFilter] = useState<string | undefined>(undefined);
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined);
+  const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
+  const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
+
+  // Filter state (pending in modal)
+  const [pendingCategory, setPendingCategory] = useState('');
+  const [pendingPriceKey, setPendingPriceKey] = useState('');
+
+  const activeFilterCount =
+    (cityFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (minPrice || maxPrice ? 1 : 0);
+
+  const { cars, loading, loadingMore, error, refetch, loadMore } = useCars({
+    city: cityFilter,
+    category: categoryFilter,
+    min_price: minPrice,
+    max_price: maxPrice,
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -83,6 +121,28 @@ export default function CarsScreen() {
 
   const handleSearch = () => {
     setCityFilter(selectedCity || undefined);
+  };
+
+  const openFilters = () => {
+    setPendingCategory(categoryFilter || '');
+    const priceMatch = PRICE_RANGES.find(
+      (p) => p.min === minPrice && p.max === maxPrice
+    );
+    setPendingPriceKey(priceMatch?.key || '');
+    setShowFilters(true);
+  };
+
+  const applyFilters = () => {
+    setCategoryFilter(pendingCategory || undefined);
+    const price = PRICE_RANGES.find((p) => p.key === pendingPriceKey);
+    setMinPrice(price?.min);
+    setMaxPrice(price?.max);
+    setShowFilters(false);
+  };
+
+  const clearFilters = () => {
+    setPendingCategory('');
+    setPendingPriceKey('');
   };
 
   if (error) {
@@ -112,7 +172,7 @@ export default function CarsScreen() {
         }
         ListHeaderComponent={
           <>
-            {/* Header */}
+            {/* Hero Header */}
             <View style={styles.heroSection}>
               <View style={styles.header}>
                 <View>
@@ -134,13 +194,13 @@ export default function CarsScreen() {
 
             {/* Booking Form Card */}
             <View style={styles.formCard}>
-              {/* City Picker */}
+              {/* City */}
               <Pressable style={styles.formField} onPress={() => setShowCityPicker(true)}>
                 <Ionicons name="location" size={20} color={Colors.primary} />
                 <View style={styles.formFieldContent}>
                   <Text style={styles.formFieldLabel}>City</Text>
                   <Text style={styles.formFieldValue}>
-                    {selectedCity || 'Select a city'}
+                    {selectedCity || 'All Cities'}
                   </Text>
                 </View>
                 <Ionicons name="chevron-down" size={18} color={Colors.foregroundMuted} />
@@ -148,7 +208,7 @@ export default function CarsScreen() {
 
               <View style={styles.formDivider} />
 
-              {/* Pickup Details */}
+              {/* Pickup */}
               <View style={styles.dateTimeRow}>
                 <Pressable style={styles.dateField} onPress={() => setShowPickupDate(true)}>
                   <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
@@ -165,7 +225,7 @@ export default function CarsScreen() {
 
               <View style={styles.formDivider} />
 
-              {/* Dropoff Details */}
+              {/* Dropoff */}
               <View style={styles.dateTimeRow}>
                 <Pressable style={styles.dateField} onPress={() => setShowDropoffDate(true)}>
                   <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
@@ -187,7 +247,47 @@ export default function CarsScreen() {
               </Pressable>
             </View>
 
-            {/* Results section header */}
+            {/* Filter Bar */}
+            <View style={styles.filterBar}>
+              <Pressable style={styles.filterButton} onPress={openFilters}>
+                <Ionicons name="options-outline" size={18} color={Colors.foreground} />
+                <Text style={styles.filterButtonText}>Filters</Text>
+                {activeFilterCount > 0 && (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                  </View>
+                )}
+              </Pressable>
+
+              {/* Quick category chips */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipScroll}
+              >
+                {CAR_CATEGORIES.slice(0, 6).map((cat) => {
+                  const active = (categoryFilter || '') === cat.key;
+                  return (
+                    <Pressable
+                      key={cat.key}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => setCategoryFilter(cat.key || undefined)}
+                    >
+                      <Ionicons
+                        name={cat.icon}
+                        size={14}
+                        color={active ? '#FFF' : Colors.foregroundSecondary}
+                      />
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {cat.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Results header */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t('home.availableCars')}</Text>
               <Text style={styles.count}>
@@ -212,7 +312,9 @@ export default function CarsScreen() {
         }
       />
 
-      {/* City Picker Modal */}
+      {/* ===== MODALS ===== */}
+
+      {/* City Picker */}
       <Modal visible={showCityPicker} animationType="slide" transparent>
         <View style={styles.pickerOverlay}>
           <View style={styles.pickerContent}>
@@ -222,7 +324,6 @@ export default function CarsScreen() {
                 <Ionicons name="close" size={24} color={Colors.foreground} />
               </Pressable>
             </View>
-            {/* All Cities option */}
             <Pressable
               style={[styles.cityRow, !selectedCity && styles.cityRowActive]}
               onPress={() => { setSelectedCity(''); setShowCityPicker(false); }}
@@ -256,7 +357,7 @@ export default function CarsScreen() {
         </View>
       </Modal>
 
-      {/* Pickup Date Picker */}
+      {/* Date Pickers */}
       {showPickupDate && (
         <DateTimePicker
           value={pickupDate}
@@ -275,8 +376,6 @@ export default function CarsScreen() {
           }}
         />
       )}
-
-      {/* Dropoff Date Picker */}
       {showDropoffDate && (
         <DateTimePicker
           value={dropoffDate}
@@ -289,68 +388,112 @@ export default function CarsScreen() {
         />
       )}
 
-      {/* Pickup Time Picker Modal */}
-      <Modal visible={showPickupTime} animationType="slide" transparent>
-        <View style={styles.pickerOverlay}>
-          <View style={styles.pickerContent}>
-            <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>Pickup Time</Text>
-              <Pressable onPress={() => setShowPickupTime(false)}>
-                <Ionicons name="close" size={24} color={Colors.foreground} />
-              </Pressable>
+      {/* Time Picker Modals */}
+      {[
+        { visible: showPickupTime, setVisible: setShowPickupTime, title: 'Pickup Time', value: pickupTime, setValue: setPickupTime },
+        { visible: showDropoffTime, setVisible: setShowDropoffTime, title: 'Drop-off Time', value: dropoffTime, setValue: setDropoffTime },
+      ].map((tp) => (
+        <Modal key={tp.title} visible={tp.visible} animationType="slide" transparent>
+          <View style={styles.pickerOverlay}>
+            <View style={styles.pickerContent}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>{tp.title}</Text>
+                <Pressable onPress={() => tp.setVisible(false)}>
+                  <Ionicons name="close" size={24} color={Colors.foreground} />
+                </Pressable>
+              </View>
+              <FlatList
+                data={TIME_SLOTS}
+                keyExtractor={(item) => `${tp.title}-${item}`}
+                renderItem={({ item }) => {
+                  const selected = item === tp.value;
+                  return (
+                    <Pressable
+                      style={[styles.listRow, selected && styles.listRowActive]}
+                      onPress={() => { tp.setValue(item); tp.setVisible(false); }}
+                    >
+                      <Ionicons name="time-outline" size={18} color={selected ? Colors.primary : Colors.foregroundMuted} />
+                      <Text style={[styles.listRowText, selected && styles.listRowTextActive]}>
+                        {formatTime12(item)}
+                      </Text>
+                      {selected && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
+                    </Pressable>
+                  );
+                }}
+              />
             </View>
-            <FlatList
-              data={TIME_SLOTS}
-              keyExtractor={(item) => `pickup-${item}`}
-              renderItem={({ item }) => {
-                const selected = item === pickupTime;
-                return (
-                  <Pressable
-                    style={[styles.timeRow, selected && styles.timeRowActive]}
-                    onPress={() => { setPickupTime(item); setShowPickupTime(false); }}
-                  >
-                    <Ionicons name="time-outline" size={18} color={selected ? Colors.primary : Colors.foregroundMuted} />
-                    <Text style={[styles.timeRowText, selected && styles.timeRowTextActive]}>
-                      {formatTime12(item)}
-                    </Text>
-                    {selected && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
-                  </Pressable>
-                );
-              }}
-            />
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      ))}
 
-      {/* Dropoff Time Picker Modal */}
-      <Modal visible={showDropoffTime} animationType="slide" transparent>
+      {/* Filters Modal */}
+      <Modal visible={showFilters} animationType="slide" transparent>
         <View style={styles.pickerOverlay}>
-          <View style={styles.pickerContent}>
+          <View style={styles.filterModal}>
             <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>Drop-off Time</Text>
-              <Pressable onPress={() => setShowDropoffTime(false)}>
+              <Text style={styles.pickerTitle}>Filters</Text>
+              <Pressable onPress={() => setShowFilters(false)}>
                 <Ionicons name="close" size={24} color={Colors.foreground} />
               </Pressable>
             </View>
-            <FlatList
-              data={TIME_SLOTS}
-              keyExtractor={(item) => `dropoff-${item}`}
-              renderItem={({ item }) => {
-                const selected = item === dropoffTime;
+
+            <ScrollView style={styles.filterScroll} showsVerticalScrollIndicator={false}>
+              {/* Car Category */}
+              <Text style={styles.filterSectionTitle}>Car Type</Text>
+              <View style={styles.filterGrid}>
+                {CAR_CATEGORIES.map((cat) => {
+                  const active = pendingCategory === cat.key;
+                  return (
+                    <Pressable
+                      key={cat.key}
+                      style={[styles.filterGridItem, active && styles.filterGridItemActive]}
+                      onPress={() => setPendingCategory(cat.key)}
+                    >
+                      <Ionicons
+                        name={cat.icon}
+                        size={24}
+                        color={active ? Colors.primary : Colors.foregroundMuted}
+                      />
+                      <Text style={[styles.filterGridLabel, active && styles.filterGridLabelActive]}>
+                        {cat.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Price Range */}
+              <Text style={styles.filterSectionTitle}>Price Range (IQD/day)</Text>
+              {PRICE_RANGES.map((price) => {
+                const active = pendingPriceKey === price.key;
                 return (
                   <Pressable
-                    style={[styles.timeRow, selected && styles.timeRowActive]}
-                    onPress={() => { setDropoffTime(item); setShowDropoffTime(false); }}
+                    key={price.key}
+                    style={[styles.listRow, active && styles.listRowActive]}
+                    onPress={() => setPendingPriceKey(price.key)}
                   >
-                    <Ionicons name="time-outline" size={18} color={selected ? Colors.primary : Colors.foregroundMuted} />
-                    <Text style={[styles.timeRowText, selected && styles.timeRowTextActive]}>
-                      {formatTime12(item)}
+                    <Ionicons
+                      name={active ? 'radio-button-on' : 'radio-button-off'}
+                      size={20}
+                      color={active ? Colors.primary : Colors.foregroundMuted}
+                    />
+                    <Text style={[styles.listRowText, active && styles.listRowTextActive]}>
+                      {price.label}
                     </Text>
-                    {selected && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
                   </Pressable>
                 );
-              }}
-            />
+              })}
+            </ScrollView>
+
+            {/* Filter Actions */}
+            <View style={styles.filterActions}>
+              <Pressable style={styles.clearButton} onPress={clearFilters}>
+                <Text style={styles.clearButtonText}>Clear All</Text>
+              </Pressable>
+              <Pressable style={styles.applyButton} onPress={applyFilters}>
+                <Text style={styles.applyButtonText}>Apply Filters</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -491,12 +634,77 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     color: '#FFF',
   },
+  // Filter Bar
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.button,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  filterButtonText: {
+    fontSize: 13,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  filterBadge: {
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+  },
+  chipScroll: {
+    gap: Spacing.xs,
+    paddingRight: Spacing.lg,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  chipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foregroundSecondary,
+  },
+  chipTextActive: {
+    color: '#FFF',
+  },
   // Section
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: Spacing.xl,
+    marginTop: Spacing.lg,
     marginBottom: Spacing.md,
     paddingHorizontal: Spacing.lg,
   },
@@ -518,7 +726,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: Colors.foregroundMuted,
   },
-  // Pickers
+  // Shared picker styles
   pickerOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -544,6 +752,7 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     color: Colors.foreground,
   },
+  // City picker rows
   cityRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -576,7 +785,8 @@ const styles = StyleSheet.create({
   cityNameActive: {
     color: Colors.primary,
   },
-  timeRow: {
+  // List rows (time, price)
+  listRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
@@ -585,16 +795,95 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  timeRowActive: {
+  listRowActive: {
     backgroundColor: Colors.tealLight,
   },
-  timeRowText: {
+  listRowText: {
     flex: 1,
     fontSize: 16,
     fontWeight: FontWeight.semibold,
     color: Colors.foreground,
   },
-  timeRowTextActive: {
+  listRowTextActive: {
     color: Colors.primary,
+  },
+  // Filter modal
+  filterModal: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  filterScroll: {
+    paddingBottom: Spacing.lg,
+  },
+  filterSectionTitle: {
+    fontSize: 15,
+    fontWeight: FontWeight.bold,
+    color: Colors.foreground,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.md,
+  },
+  filterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  filterGridItem: {
+    width: '30%',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.button,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    gap: 6,
+  },
+  filterGridItemActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.tealLight,
+  },
+  filterGridLabel: {
+    fontSize: 12,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foregroundSecondary,
+  },
+  filterGridLabelActive: {
+    color: Colors.primary,
+  },
+  filterActions: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    paddingBottom: Spacing['3xl'],
+    gap: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  clearButton: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: Radius.button,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  clearButtonText: {
+    fontSize: FontSize.button,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  applyButton: {
+    flex: 2,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: Radius.button,
+    backgroundColor: Colors.primary,
+  },
+  applyButtonText: {
+    fontSize: FontSize.button,
+    fontWeight: FontWeight.semibold,
+    color: '#FFF',
   },
 });

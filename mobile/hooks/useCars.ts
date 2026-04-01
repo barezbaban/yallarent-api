@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { carsApi, Car } from '../services/api';
 
-export function useCars(filters?: { city?: string; max_price?: number }) {
+export function useCars(filters?: { city?: string; max_price?: number; min_price?: number; category?: string }) {
   const [cars, setCars] = useState<Car[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -19,7 +19,9 @@ export function useCars(filters?: { city?: string; max_price?: number }) {
     try {
       const result = await carsApi.list({
         city: filters?.city,
+        min_price: filters?.min_price,
         max_price: filters?.max_price,
+        category: filters?.category,
         page: pageNum,
         limit: 20,
       });
@@ -32,7 +34,7 @@ export function useCars(filters?: { city?: string; max_price?: number }) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [filters?.city, filters?.max_price]);
+  }, [filters?.city, filters?.min_price, filters?.max_price, filters?.category]);
 
   useEffect(() => {
     fetchCars(1, false);

@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-async function findAll({ city, minPrice, maxPrice, page = 1, limit = 20 } = {}) {
+async function findAll({ city, minPrice, maxPrice, category, page = 1, limit = 20 } = {}) {
   let query = `
     SELECT c.*, co.name AS company_name, co.city AS company_city
     FROM cars c
@@ -20,6 +20,10 @@ async function findAll({ city, minPrice, maxPrice, page = 1, limit = 20 } = {}) 
   if (maxPrice) {
     params.push(maxPrice);
     query += ` AND c.price_per_day <= $${params.length}`;
+  }
+  if (category) {
+    params.push(category);
+    query += ` AND c.category = $${params.length}`;
   }
 
   // Count total before pagination

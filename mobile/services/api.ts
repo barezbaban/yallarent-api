@@ -42,6 +42,7 @@ export interface Car {
   year: number;
   price_per_day: number;
   city: string;
+  category: string;
   image_url: string | null;
   description: string | null;
   is_available: boolean;
@@ -133,11 +134,12 @@ export interface PaginatedResponse<T> {
 }
 
 export const carsApi = {
-  list: (params?: { city?: string; min_price?: number; max_price?: number; page?: number; limit?: number }) => {
+  list: (params?: { city?: string; min_price?: number; max_price?: number; category?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
     if (params?.city) query.set('city', params.city);
     if (params?.min_price) query.set('min_price', String(params.min_price));
     if (params?.max_price) query.set('max_price', String(params.max_price));
+    if (params?.category) query.set('category', params.category);
     if (params?.page) query.set('page', String(params.page));
     if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();

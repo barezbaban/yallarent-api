@@ -2,11 +2,12 @@ const carQueries = require('../db/carQueries');
 
 async function list(req, res) {
   try {
-    const { city, min_price, max_price, page, limit } = req.query;
+    const { city, min_price, max_price, category, page, limit } = req.query;
     const result = await carQueries.findAll({
       city,
       minPrice: min_price,
       maxPrice: max_price,
+      category,
       page: page || 1,
       limit: limit || 20,
     });
