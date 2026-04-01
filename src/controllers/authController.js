@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userQueries = require('../db/userQueries');
 const { jwtSecret } = require('../config/env');
-const email = require('../services/email');
+const emailService = require('../services/email');
 
 async function signup(req, res) {
   try {
@@ -26,8 +26,8 @@ async function signup(req, res) {
     resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
 
     // Send OTP via email if user provided one
-    if (email.isConfigured() && req.body.email) {
-      email.sendOtp(req.body.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+    if (emailService.isConfigured() && req.body.email) {
+      emailService.sendOtp(req.body.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
     }
 
     res.status(201).json({ message: 'Account created. Please verify your phone number.', phone });
@@ -95,8 +95,8 @@ async function login(req, res) {
       // Re-send OTP
       const otp = generateOtp();
       resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
-      if (email.isConfigured() && user.email) {
-        email.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+      if (emailService.isConfigured() && user.email) {
+        emailService.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
       }
       return res.status(403).json({ error: 'Account not verified', phone, requiresVerification: true });
     }
@@ -154,8 +154,8 @@ async function requestReset(req, res) {
     resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
 
     // Send OTP via email
-    if (email.isConfigured() && user.email) {
-      email.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+    if (emailService.isConfigured() && user.email) {
+      emailService.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
     }
 
     res.json({ message: 'If this phone is registered, you will receive a code' });

@@ -1,7 +1,7 @@
 const bookingQueries = require('../db/bookingQueries');
 const carQueries = require('../db/carQueries');
 const userQueries = require('../db/userQueries');
-const email = require('../services/email');
+const emailService = require('../services/email');
 
 async function create(req, res) {
   try {
@@ -34,10 +34,10 @@ async function create(req, res) {
     }
 
     // Send booking receipt via email
-    if (email.isConfigured()) {
+    if (emailService.isConfigured()) {
       const user = await userQueries.findById(renterId);
       if (user && user.email) {
-        email.sendBookingReceipt(user.email, {
+        emailService.sendBookingReceipt(user.email, {
           ...result.booking,
           car_name: `${car.make} ${car.model} ${car.year}`,
           company_name: car.company_name,
