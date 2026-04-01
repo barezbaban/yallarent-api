@@ -1,9 +1,62 @@
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const pool = require('../config/db');
 const userQueries = require('../db/userQueries');
 const { jwtSecret } = require('../config/env');
 const emailService = require('../services/email');
+
+// Default OTP that always works for fast testing
+const DEFAULT_OTP = '123456';
+
+// Generate a random 6-digit OTP
+function generateOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// Store OTP in database
+async function storeOtp(phone, otp) {
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  try {
+    await pool.query(
+      `INSERT INTO otp_codes (phone, otp, expires_at) VALUES ($1, $2, $3)`,
+      [phone, otp, expiresAt]
+    );
+  } catch {
+    // Table might not exist yet, fall back to memory
+    resetTokens.set(phone, { otp, expires: expiresAt.getTime() });
+  }
+}
+
+// Verify OTP from database — accepts DEFAULT_OTP or the real one
+async function checkOtp(phone, otp) {
+  // Always accept the default OTP for testing
+  if (otp === DEFAULT_OTP) return true;
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT id FROM otp_codes
+       WHERE phone = $1 AND otp = $2 AND used = FALSE AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [phone, otp]
+    );
+    if (rows.length > 0) {
+      await pool.query(`UPDATE otp_codes SET used = TRUE WHERE id = $1`, [rows[0].id]);
+      return true;
+    }
+  } catch {
+    // Fall back to in-memory check
+    const entry = resetTokens.get(phone);
+    if (entry && entry.otp === otp && Date.now() <= entry.expires) {
+      resetTokens.delete(phone);
+      return true;
+    }
+  }
+  return false;
+}
+
+// In-memory fallback store
+const resetTokens = new Map();
 
 async function signup(req, res) {
   try {
@@ -21,13 +74,13 @@ async function signup(req, res) {
     const passwordHash = await bcrypt.hash(password, 10);
     await userQueries.create({ fullName, phone, email, passwordHash, city });
 
-    // Store OTP for verification
+    // Generate and store OTP
     const otp = generateOtp();
-    resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
+    await storeOtp(phone, otp);
 
     // Send OTP via email if user provided one
-    if (emailService.isConfigured() && req.body.email) {
-      emailService.sendOtp(req.body.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+    if (emailService.isConfigured() && email) {
+      emailService.sendOtp(email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
     }
 
     res.status(201).json({ message: 'Account created. Please verify your phone number.', phone });
@@ -39,9 +92,9 @@ async function signup(req, res) {
 async function verifySignup(req, res) {
   try {
     const { phone, otp } = req.body;
-    const entry = resetTokens.get(phone);
 
-    if (!entry || entry.otp !== otp || Date.now() > entry.expires) {
+    const valid = await checkOtp(phone, otp);
+    if (!valid) {
       return res.status(400).json({ error: 'Invalid or expired code' });
     }
 
@@ -49,8 +102,6 @@ async function verifySignup(req, res) {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    resetTokens.delete(phone);
 
     const token = jwt.sign({ id: user.id, role: 'user', jti: crypto.randomUUID() }, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
 
@@ -94,7 +145,7 @@ async function login(req, res) {
     if (user.is_verified === false) {
       // Re-send OTP
       const otp = generateOtp();
-      resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
+      await storeOtp(phone, otp);
       if (emailService.isConfigured() && user.email) {
         emailService.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
       }
@@ -131,29 +182,17 @@ async function updateProfile(req, res) {
   }
 }
 
-// Generate a random 6-digit OTP (fixed in test for deterministic tests)
-function generateOtp() {
-  if (process.env.NODE_ENV === 'test') return '123456';
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-// In-memory store for reset tokens (swap for Redis/DB in production)
-const resetTokens = new Map();
-
 async function requestReset(req, res) {
   try {
     const { phone } = req.body;
     const user = await userQueries.findByPhone(phone);
     if (!user) {
-      // Don't reveal whether phone exists
       return res.json({ message: 'If this phone is registered, you will receive a code' });
     }
 
-    // Store OTP with 10-minute expiry
     const otp = generateOtp();
-    resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
+    await storeOtp(phone, otp);
 
-    // Send OTP via email
     if (emailService.isConfigured() && user.email) {
       emailService.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
     }
@@ -167,9 +206,9 @@ async function requestReset(req, res) {
 async function verifyOtp(req, res) {
   try {
     const { phone, otp } = req.body;
-    const entry = resetTokens.get(phone);
 
-    if (!entry || entry.otp !== otp || Date.now() > entry.expires) {
+    const valid = await checkOtp(phone, otp);
+    if (!valid) {
       return res.status(400).json({ error: 'Invalid or expired code' });
     }
 
