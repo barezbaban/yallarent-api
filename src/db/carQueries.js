@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-async function findAll({ city, minPrice, maxPrice, category, page = 1, limit = 20 } = {}) {
+async function findAll({ city, minPrice, maxPrice, category, transmission, minPassengers, minLuggage, page = 1, limit = 20 } = {}) {
   let query = `
     SELECT c.*, co.name AS company_name, co.city AS company_city
     FROM cars c
@@ -22,8 +22,26 @@ async function findAll({ city, minPrice, maxPrice, category, page = 1, limit = 2
     query += ` AND c.price_per_day <= $${params.length}`;
   }
   if (category) {
-    params.push(category);
-    query += ` AND c.category = $${params.length}`;
+    const categories = category.split(',').map((c) => c.trim()).filter(Boolean);
+    if (categories.length === 1) {
+      params.push(categories[0]);
+      query += ` AND c.category = $${params.length}`;
+    } else if (categories.length > 1) {
+      params.push(categories);
+      query += ` AND c.category = ANY($${params.length})`;
+    }
+  }
+  if (transmission) {
+    params.push(transmission);
+    query += ` AND c.transmission = $${params.length}`;
+  }
+  if (minPassengers) {
+    params.push(minPassengers);
+    query += ` AND c.passengers >= $${params.length}`;
+  }
+  if (minLuggage) {
+    params.push(minLuggage);
+    query += ` AND c.luggage >= $${params.length}`;
   }
 
   // Count total before pagination

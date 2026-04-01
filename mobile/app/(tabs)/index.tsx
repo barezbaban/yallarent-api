@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -18,7 +18,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import { IRAQ_CITIES } from '../../constants/cities';
 import { useCars } from '../../hooks/useCars';
-import { notificationsApi } from '../../services/api';
+import { carsApi, notificationsApi } from '../../services/api';
 import { useAuth } from '../../services/auth';
 import { t } from '../../services/i18n';
 import { useLanguage } from '../../services/language';
@@ -97,19 +97,31 @@ export default function CarsScreen() {
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined);
   const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
+  const [transmissionFilter, setTransmissionFilter] = useState<string | undefined>(undefined);
+  const [passengersFilter, setPassengersFilter] = useState<number | undefined>(undefined);
+  const [luggageFilter, setLuggageFilter] = useState<number | undefined>(undefined);
 
   // Filter state (pending in modal)
-  const [pendingCategory, setPendingCategory] = useState('');
+  const [pendingCategories, setPendingCategories] = useState<string[]>([]);
   const [pendingPriceKey, setPendingPriceKey] = useState('');
+  const [pendingTransmission, setPendingTransmission] = useState('');
+  const [pendingPassengers, setPendingPassengers] = useState('');
+  const [pendingLuggage, setPendingLuggage] = useState('');
+  const [filterResultCount, setFilterResultCount] = useState<number | null>(null);
+  const filterCountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeFilterCount =
-    (cityFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (minPrice || maxPrice ? 1 : 0);
+    (cityFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (minPrice || maxPrice ? 1 : 0) +
+    (transmissionFilter ? 1 : 0) + (passengersFilter ? 1 : 0) + (luggageFilter ? 1 : 0);
 
   const { cars, loading, loadingMore, refreshing, error, refetch, onRefresh, loadMore } = useCars({
     city: cityFilter,
     category: categoryFilter,
     min_price: minPrice,
     max_price: maxPrice,
+    transmission: transmissionFilter,
+    min_passengers: passengersFilter,
+    min_luggage: luggageFilter,
   });
 
   useFocusEffect(
@@ -125,27 +137,69 @@ export default function CarsScreen() {
     setCityFilter(selectedCity || undefined);
   };
 
+  const togglePendingCategory = (key: string) => {
+    setPendingCategories((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
   const openFilters = () => {
-    setPendingCategory(categoryFilter || '');
+    setPendingCategories(categoryFilter ? categoryFilter.split(',') : []);
     const priceMatch = PRICE_RANGES.find(
       (p) => p.min === minPrice && p.max === maxPrice
     );
     setPendingPriceKey(priceMatch?.key || '');
+    setPendingTransmission(transmissionFilter || '');
+    setPendingPassengers(passengersFilter ? String(passengersFilter) : '');
+    setPendingLuggage(luggageFilter ? String(luggageFilter) : '');
+    setFilterResultCount(null);
     setShowFilters(true);
   };
 
   const applyFilters = () => {
-    setCategoryFilter(pendingCategory || undefined);
+    setCategoryFilter(pendingCategories.length > 0 ? pendingCategories.join(',') : undefined);
     const price = PRICE_RANGES.find((p) => p.key === pendingPriceKey);
     setMinPrice(price?.min);
     setMaxPrice(price?.max);
+    setTransmissionFilter(pendingTransmission || undefined);
+    setPassengersFilter(pendingPassengers ? Number(pendingPassengers) : undefined);
+    setLuggageFilter(pendingLuggage ? Number(pendingLuggage) : undefined);
     setShowFilters(false);
   };
 
   const clearFilters = () => {
-    setPendingCategory('');
+    setPendingCategories([]);
     setPendingPriceKey('');
+    setPendingTransmission('');
+    setPendingPassengers('');
+    setPendingLuggage('');
   };
+
+  // Preview result count when pending filters change
+  useEffect(() => {
+    if (!showFilters) return;
+    if (filterCountTimer.current) clearTimeout(filterCountTimer.current);
+    filterCountTimer.current = setTimeout(async () => {
+      try {
+        const price = PRICE_RANGES.find((p) => p.key === pendingPriceKey);
+        const result = await carsApi.list({
+          city: cityFilter,
+          category: pendingCategories.length > 0 ? pendingCategories.join(',') : undefined,
+          min_price: price?.min,
+          max_price: price?.max,
+          transmission: pendingTransmission || undefined,
+          min_passengers: pendingPassengers ? Number(pendingPassengers) : undefined,
+          min_luggage: pendingLuggage ? Number(pendingLuggage) : undefined,
+          page: 1,
+          limit: 1,
+        });
+        setFilterResultCount(result.total);
+      } catch {
+        setFilterResultCount(null);
+      }
+    }, 300);
+    return () => { if (filterCountTimer.current) clearTimeout(filterCountTimer.current); };
+  }, [showFilters, pendingCategories, pendingPriceKey, pendingTransmission, pendingPassengers, pendingLuggage, cityFilter]);
 
   if (error) {
     return (
@@ -270,13 +324,24 @@ export default function CarsScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.chipScroll}
               >
-                {CAR_CATEGORIES.slice(0, 6).map((cat) => {
-                  const active = (categoryFilter || '') === cat.key;
+                {CAR_CATEGORIES.map((cat) => {
+                  const activeCats = categoryFilter ? categoryFilter.split(',') : [];
+                  const active = cat.key === '' ? !categoryFilter : activeCats.includes(cat.key);
                   return (
                     <Pressable
                       key={cat.key}
                       style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => setCategoryFilter(cat.key || undefined)}
+                      onPress={() => {
+                        if (cat.key === '') {
+                          setCategoryFilter(undefined);
+                        } else {
+                          const cats = categoryFilter ? categoryFilter.split(',') : [];
+                          const updated = cats.includes(cat.key)
+                            ? cats.filter((c) => c !== cat.key)
+                            : [...cats, cat.key];
+                          setCategoryFilter(updated.length > 0 ? updated.join(',') : undefined);
+                        }
+                      }}
                     >
                       <Ionicons
                         name={cat.icon}
@@ -436,31 +501,59 @@ export default function CarsScreen() {
         <View style={styles.pickerOverlay}>
           <View style={styles.filterModal}>
             <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>Filters</Text>
+              <Text style={styles.pickerTitle}>Vehicle Filters</Text>
               <Pressable onPress={() => setShowFilters(false)}>
                 <Ionicons name="close" size={24} color={Colors.foreground} />
               </Pressable>
             </View>
 
             <ScrollView style={styles.filterScroll} showsVerticalScrollIndicator={false}>
-              {/* Car Category */}
-              <Text style={styles.filterSectionTitle}>Car Type</Text>
-              <View style={styles.filterGrid}>
-                {CAR_CATEGORIES.map((cat) => {
-                  const active = pendingCategory === cat.key;
+              {/* Vehicle Type - multi-select 2-column grid */}
+              <Text style={styles.filterSectionTitle}>Vehicle Type</Text>
+              <View style={styles.vehicleGrid}>
+                {CAR_CATEGORIES.filter((c) => c.key !== '').map((cat) => {
+                  const active = pendingCategories.includes(cat.key);
                   return (
                     <Pressable
                       key={cat.key}
-                      style={[styles.filterGridItem, active && styles.filterGridItemActive]}
-                      onPress={() => setPendingCategory(cat.key)}
+                      style={[styles.vehicleGridItem, active && styles.vehicleGridItemActive]}
+                      onPress={() => togglePendingCategory(cat.key)}
                     >
+                      {active && (
+                        <View style={styles.vehicleCheckmark}>
+                          <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                        </View>
+                      )}
                       <Ionicons
                         name={cat.icon}
-                        size={24}
+                        size={28}
                         color={active ? Colors.primary : Colors.foregroundMuted}
                       />
-                      <Text style={[styles.filterGridLabel, active && styles.filterGridLabelActive]}>
+                      <Text style={[styles.vehicleGridLabel, active && styles.vehicleGridLabelActive]}>
                         {cat.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Transmission */}
+              <Text style={styles.filterSectionTitle}>Transmission</Text>
+              <View style={styles.chipRow}>
+                {[
+                  { key: '', label: 'Any' },
+                  { key: 'manual', label: 'Manual' },
+                  { key: 'automatic', label: 'Automatic' },
+                ].map((item) => {
+                  const active = pendingTransmission === item.key;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      style={[styles.filterChip, active && styles.filterChipActive]}
+                      onPress={() => setPendingTransmission(item.key)}
+                    >
+                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                        {item.label}
                       </Text>
                     </Pressable>
                   );
@@ -469,25 +562,86 @@ export default function CarsScreen() {
 
               {/* Price Range */}
               <Text style={styles.filterSectionTitle}>Price Range (IQD/day)</Text>
-              {PRICE_RANGES.map((price) => {
-                const active = pendingPriceKey === price.key;
-                return (
-                  <Pressable
-                    key={price.key}
-                    style={[styles.listRow, active && styles.listRowActive]}
-                    onPress={() => setPendingPriceKey(price.key)}
-                  >
-                    <Ionicons
-                      name={active ? 'radio-button-on' : 'radio-button-off'}
-                      size={20}
-                      color={active ? Colors.primary : Colors.foregroundMuted}
-                    />
-                    <Text style={[styles.listRowText, active && styles.listRowTextActive]}>
-                      {price.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              <View style={styles.chipRow}>
+                {PRICE_RANGES.map((price) => {
+                  const active = pendingPriceKey === price.key;
+                  return (
+                    <Pressable
+                      key={price.key}
+                      style={[styles.filterChip, active && styles.filterChipActive]}
+                      onPress={() => setPendingPriceKey(price.key)}
+                    >
+                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                        {price.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Passengers */}
+              <Text style={styles.filterSectionTitle}>Passengers</Text>
+              <View style={styles.chipRow}>
+                {[
+                  { key: '', label: 'Any' },
+                  { key: '2', label: '2+' },
+                  { key: '4', label: '4+' },
+                  { key: '6', label: '6+' },
+                  { key: '8', label: '8+' },
+                ].map((item) => {
+                  const active = pendingPassengers === item.key;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      style={[styles.filterChip, active && styles.filterChipActive]}
+                      onPress={() => setPendingPassengers(item.key)}
+                    >
+                      <Ionicons
+                        name="person"
+                        size={14}
+                        color={active ? '#FFF' : Colors.foregroundMuted}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Luggage */}
+              <Text style={styles.filterSectionTitle}>Luggage</Text>
+              <View style={styles.chipRow}>
+                {[
+                  { key: '', label: 'Any' },
+                  { key: '2', label: '2+' },
+                  { key: '4', label: '4+' },
+                  { key: '6', label: '6+' },
+                  { key: '8', label: '8+' },
+                ].map((item) => {
+                  const active = pendingLuggage === item.key;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      style={[styles.filterChip, active && styles.filterChipActive]}
+                      onPress={() => setPendingLuggage(item.key)}
+                    >
+                      <Ionicons
+                        name="briefcase"
+                        size={14}
+                        color={active ? '#FFF' : Colors.foregroundMuted}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={{ height: Spacing.xl }} />
             </ScrollView>
 
             {/* Filter Actions */}
@@ -496,7 +650,11 @@ export default function CarsScreen() {
                 <Text style={styles.clearButtonText}>Clear All</Text>
               </Pressable>
               <Pressable style={styles.applyButton} onPress={applyFilters}>
-                <Text style={styles.applyButtonText}>Apply Filters</Text>
+                <Text style={styles.applyButtonText}>
+                  {filterResultCount !== null
+                    ? `View ${filterResultCount} Result${filterResultCount !== 1 ? 's' : ''}`
+                    : 'Apply Filters'}
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -817,7 +975,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   filterScroll: {
     paddingBottom: Spacing.lg,
@@ -830,32 +988,70 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
     paddingBottom: Spacing.md,
   },
-  filterGrid: {
+  // Vehicle type 2-column grid
+  vehicleGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
   },
-  filterGridItem: {
-    width: '30%',
+  vehicleGridItem: {
+    width: '48%',
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.md,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.md,
     borderRadius: Radius.button,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    gap: 6,
+    gap: Spacing.sm,
+    position: 'relative',
   },
-  filterGridItemActive: {
+  vehicleGridItemActive: {
     borderColor: Colors.primary,
     backgroundColor: Colors.tealLight,
   },
-  filterGridLabel: {
-    fontSize: 12,
+  vehicleCheckmark: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+  },
+  vehicleGridLabel: {
+    fontSize: 13,
     fontWeight: FontWeight.semibold,
     color: Colors.foregroundSecondary,
   },
-  filterGridLabelActive: {
+  vehicleGridLabelActive: {
     color: Colors.primary,
+  },
+  // Chip rows for transmission, price, passengers, luggage
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: '#FFF',
+  },
+  filterChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foregroundSecondary,
+  },
+  filterChipTextActive: {
+    color: '#FFF',
   },
   filterActions: {
     flexDirection: 'row',
