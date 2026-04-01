@@ -58,6 +58,16 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const passwordRef = useRef<TextInput>(null);
 
+  const passwordRules = [
+    { label: 'Is between 8 to 30 characters', met: password.length >= 8 && password.length <= 30 },
+    { label: 'Has a number (0-9)', met: /\d/.test(password) },
+    { label: 'Has an uppercase letter (A-Z)', met: /[A-Z]/.test(password) },
+    { label: 'Has a lowercase letter (a-z)', met: /[a-z]/.test(password) },
+    { label: 'Has a symbol (#$%^&!@)', met: /[#$%^&!@]/.test(password) },
+    { label: 'No character repeats 3+ times in a row', met: !/(.)\1{2,}/.test(password) },
+    { label: "Does not contain 'password'", met: !password.toLowerCase().includes('password') },
+  ];
+
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/[^0-9]/g, '');
     const maxLen = digits.startsWith('0') ? 11 : 10;
@@ -71,6 +81,10 @@ export default function LoginScreen() {
     }
     if (tab === 'signup' && !fullName) {
       showAlert({ title: 'Missing Fields', message: 'Full name is required', type: 'warning' });
+      return;
+    }
+    if (tab === 'signup' && !passwordRules.every((r) => r.met)) {
+      showAlert({ title: 'Weak Password', message: 'Please meet all password requirements', type: 'warning' });
       return;
     }
 
@@ -207,7 +221,7 @@ export default function LoginScreen() {
 
         {/* Password */}
         <Text style={styles.label}>Password</Text>
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, tab === 'signup' && password.length > 0 && !passwordRules.every((r) => r.met) && styles.inputError]}>
           <Ionicons name="lock-closed-outline" size={20} color={Colors.foregroundMuted} />
           <TextInput
             ref={passwordRef}
@@ -217,6 +231,7 @@ export default function LoginScreen() {
             secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
+            maxLength={30}
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
           />
@@ -228,6 +243,23 @@ export default function LoginScreen() {
             />
           </Pressable>
         </View>
+
+        {tab === 'signup' && password.length > 0 && (
+          <View style={styles.rulesContainer}>
+            {passwordRules.map((rule) => (
+              <View key={rule.label} style={styles.ruleRow}>
+                <Ionicons
+                  name={rule.met ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={18}
+                  color={rule.met ? Colors.success : Colors.foregroundMuted}
+                />
+                <Text style={[styles.ruleText, rule.met && styles.ruleTextMet]}>
+                  {rule.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Submit */}
         <Pressable
@@ -412,6 +444,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     gap: Spacing.sm,
+  },
+  inputError: {
+    borderColor: Colors.error,
+    borderWidth: 1.5,
+  },
+  rulesContainer: {
+    marginTop: Spacing.md,
+    gap: 6,
+  },
+  ruleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  ruleText: {
+    fontSize: 13,
+    color: Colors.foregroundMuted,
+  },
+  ruleTextMet: {
+    color: Colors.success,
   },
   phoneRow: {
     flexDirection: 'row',

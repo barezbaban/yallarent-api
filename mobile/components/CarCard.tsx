@@ -35,17 +35,26 @@ export default function CarCard({ car }: CarCardProps) {
             <Text style={styles.priceUnit}>IQD/day</Text>
           </View>
         </View>
-        <Text style={styles.company}>{car.company_name}</Text>
+        <View style={styles.companyRow}>
+          <Text style={styles.company}>{car.company_name}</Text>
+          {car.review_count > 0 && (
+            <View style={styles.ratingRow}>
+              <Ionicons name="star" size={13} color={Colors.amber} />
+              <Text style={styles.ratingText}>{car.average_rating?.toFixed(1)}</Text>
+              <Text style={styles.reviewCount}>({car.review_count})</Text>
+            </View>
+          )}
+        </View>
         <View style={styles.tags}>
           <View style={[styles.tag, styles.cityTag]}>
             <Ionicons name="location" size={12} color={Colors.primary} />
             <Text style={styles.cityTagText}>{car.city}</Text>
           </View>
           <View style={styles.tag}>
-            <Text style={styles.tagText}>Automatic</Text>
+            <Text style={styles.tagText}>{car.transmission === 'manual' ? 'Manual' : 'Automatic'}</Text>
           </View>
           <View style={styles.tag}>
-            <Text style={styles.tagText}>5 seats</Text>
+            <Text style={styles.tagText}>{car.passengers || 5} seats</Text>
           </View>
         </View>
       </View>
@@ -94,10 +103,29 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     color: Colors.foregroundMuted,
   },
+  companyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
   company: {
     fontSize: FontSize.caption,
     color: Colors.foregroundSecondary,
-    marginTop: 2,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  ratingText: {
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  reviewCount: {
+    fontSize: FontSize.caption,
+    color: Colors.foregroundMuted,
   },
   tags: {
     flexDirection: 'row',

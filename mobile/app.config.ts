@@ -47,6 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           sounds: [],
         },
       ],
+      '@react-native-community/datetimepicker',
     ],
     extra: {
       apiUrl,

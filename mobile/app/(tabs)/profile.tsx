@@ -88,6 +88,7 @@ export default function ProfileScreen() {
         <MenuItem icon="car-outline" label={t('profile.myBookings')} onPress={() => router.push('/(tabs)/bookings')} />
         <MenuItem icon="heart-outline" label={t('profile.favorites')} onPress={() => router.push('/favorites')} />
         <MenuItem icon="notifications-outline" label={t('profile.notifications')} onPress={() => router.push('/notifications')} />
+        <MenuItem icon="chatbubble-ellipses-outline" label="Support Chat" onPress={() => router.push('/support-chat')} />
         <MenuItem icon="settings-outline" label={t('profile.settings')} onPress={() => router.push('/settings')} />
         <MenuItem icon="help-circle-outline" label={t('profile.helpSupport')} onPress={() => router.push('/help')} />
       </View>

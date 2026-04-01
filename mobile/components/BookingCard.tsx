@@ -10,8 +10,10 @@ interface BookingCardProps {
   endDate: string;
   totalPrice: number;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  hasReview?: boolean;
   onPress?: () => void;
   onCancel?: () => void;
+  onReview?: () => void;
 }
 
 const STATUS_CONFIG = {
@@ -31,8 +33,10 @@ export default function BookingCard({
   endDate,
   totalPrice,
   status,
+  hasReview,
   onPress,
   onCancel,
+  onReview,
 }: BookingCardProps) {
   const statusConfig = STATUS_CONFIG[status];
 
@@ -65,6 +69,12 @@ export default function BookingCard({
         <Pressable style={styles.cancelButton} onPress={onCancel}>
           <Ionicons name="close-circle-outline" size={16} color={Colors.error} />
           <Text style={styles.cancelText}>Cancel Booking</Text>
+        </Pressable>
+      )}
+      {status === 'completed' && !hasReview && onReview && (
+        <Pressable style={styles.reviewButton} onPress={onReview}>
+          <Ionicons name="star-outline" size={16} color={Colors.amber} />
+          <Text style={styles.reviewBtnText}>Write a Review</Text>
         </Pressable>
       )}
     </Pressable>
@@ -150,5 +160,20 @@ const styles = StyleSheet.create({
     fontSize: FontSize.caption,
     fontWeight: FontWeight.semibold,
     color: Colors.error,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  reviewBtnText: {
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.semibold,
+    color: Colors.amber,
   },
 });

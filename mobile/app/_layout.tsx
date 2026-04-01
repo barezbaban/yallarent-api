@@ -39,8 +39,16 @@ export default function RootLayout() {
             if (pt) await SecureStore.setItemAsync(PUSH_TOKEN_KEY, pt);
           }).catch(() => {});
         }
-        // Guest mode is session-only — don't restore from storage
-        await SecureStore.deleteItemAsync(GUEST_MODE_KEY);
+        // Restore guest mode if entered within the last 24 hours
+        const guestTimestamp = await SecureStore.getItemAsync(GUEST_MODE_KEY);
+        if (guestTimestamp) {
+          const elapsed = Date.now() - parseInt(guestTimestamp, 10);
+          if (elapsed < 24 * 60 * 60 * 1000) {
+            setGuestMode(true);
+          } else {
+            await SecureStore.deleteItemAsync(GUEST_MODE_KEY);
+          }
+        }
       } catch {}
       setIsReady(true);
     })();
@@ -121,7 +129,7 @@ export default function RootLayout() {
   }, []);
 
   const enterGuestMode = useCallback(async () => {
-    await SecureStore.setItemAsync(GUEST_MODE_KEY, 'true');
+    await SecureStore.setItemAsync(GUEST_MODE_KEY, Date.now().toString());
     setGuestMode(true);
   }, []);
 
@@ -205,6 +213,14 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="privacy"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="write-review"
+          options={{ animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen
+          name="support-chat"
           options={{ animation: 'slide_from_right' }}
         />
       </Stack>

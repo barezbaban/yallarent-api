@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-async function findAll({ city, minPrice, maxPrice, page = 1, limit = 20 } = {}) {
+async function findAll({ city, minPrice, maxPrice, category, transmission, minPassengers, minLuggage, page = 1, limit = 20 } = {}) {
   let query = `
     SELECT c.*, co.name AS company_name, co.city AS company_city
     FROM cars c
@@ -21,6 +21,28 @@ async function findAll({ city, minPrice, maxPrice, page = 1, limit = 20 } = {}) 
     params.push(maxPrice);
     query += ` AND c.price_per_day <= $${params.length}`;
   }
+  if (category) {
+    const categories = category.split(',').map((c) => c.trim()).filter(Boolean);
+    if (categories.length === 1) {
+      params.push(categories[0]);
+      query += ` AND c.category = $${params.length}`;
+    } else if (categories.length > 1) {
+      params.push(categories);
+      query += ` AND c.category = ANY($${params.length})`;
+    }
+  }
+  if (transmission) {
+    params.push(transmission);
+    query += ` AND c.transmission = $${params.length}`;
+  }
+  if (minPassengers) {
+    params.push(minPassengers);
+    query += ` AND c.passengers >= $${params.length}`;
+  }
+  if (minLuggage) {
+    params.push(minLuggage);
+    query += ` AND c.luggage >= $${params.length}`;
+  }
 
   // Count total before pagination
   const countQuery = query.replace(/SELECT c\.\*, co\.name AS company_name, co\.city AS company_city/, 'SELECT COUNT(*) AS total');
@@ -34,6 +56,22 @@ async function findAll({ city, minPrice, maxPrice, page = 1, limit = 20 } = {}) 
   query += ` OFFSET $${params.length}`;
 
   const { rows } = await pool.query(query, params);
+
+  // Attach rating stats in batch
+  if (rows.length > 0) {
+    const ids = rows.map((r) => r.id);
+    const { rows: ratingRows } = await pool.query(
+      `SELECT car_id, AVG(rating)::numeric(3,1) AS average_rating, COUNT(*)::int AS review_count
+       FROM reviews WHERE car_id = ANY($1) GROUP BY car_id`,
+      [ids]
+    );
+    const ratingsMap = Object.fromEntries(ratingRows.map((r) => [r.car_id, r]));
+    for (const car of rows) {
+      car.average_rating = ratingsMap[car.id]?.average_rating ? parseFloat(ratingsMap[car.id].average_rating) : null;
+      car.review_count = ratingsMap[car.id]?.review_count || 0;
+    }
+  }
+
   return { data: rows, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
@@ -52,6 +90,16 @@ async function findById(id) {
     [id]
   );
   rows[0].images = imageRows;
+
+  // Attach rating stats
+  const { rows: ratingRows } = await pool.query(
+    `SELECT AVG(rating)::numeric(3,1) AS average_rating, COUNT(*)::int AS review_count
+     FROM reviews WHERE car_id = $1`,
+    [id]
+  );
+  rows[0].average_rating = ratingRows[0].average_rating ? parseFloat(ratingRows[0].average_rating) : null;
+  rows[0].review_count = ratingRows[0].review_count || 0;
+
   return rows[0];
 }
 

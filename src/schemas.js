@@ -97,6 +97,16 @@ const sendNotification = z.object({
   body: z.string().min(1, 'Body is required').max(500),
 });
 
+const createReview = z.object({
+  bookingId: uuid,
+  rating: z.number().int().min(1).max(5),
+  reviewText: z.string().max(1000).optional().default(''),
+});
+
+const sendSupportMessage = z.object({
+  message: z.string().min(1, 'Message is required').max(2000),
+});
+
 module.exports = {
   signup,
   verifySignup,
@@ -113,4 +123,6 @@ module.exports = {
   registerDevice,
   unregisterDevice,
   sendNotification,
+  createReview,
+  sendSupportMessage,
 };

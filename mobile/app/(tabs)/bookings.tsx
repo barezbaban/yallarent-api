@@ -87,6 +87,8 @@ export default function BookingsScreen() {
               endDate={new Date(item.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               totalPrice={item.total_price}
               status={item.status}
+              hasReview={item.has_review}
+              onReview={() => router.push(`/write-review?bookingId=${item.id}&carName=${encodeURIComponent(`${item.make} ${item.model} ${item.year}`)}`)}
               onCancel={() => {
                 showAlert({
                   title: t('bookings.cancelConfirm'),

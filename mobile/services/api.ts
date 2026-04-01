@@ -42,12 +42,18 @@ export interface Car {
   year: number;
   price_per_day: number;
   city: string;
+  category: string;
+  transmission: string;
+  passengers: number;
+  luggage: number;
   image_url: string | null;
   description: string | null;
   is_available: boolean;
   created_at: string;
   company_name: string;
   company_city: string;
+  average_rating: number | null;
+  review_count: number;
   company_phone?: string;
   company_address?: string;
   images?: CarImage[];
@@ -71,6 +77,7 @@ export interface Booking {
   year?: number;
   image_url?: string;
   company_name?: string;
+  has_review?: boolean;
 }
 
 export interface AuthResponse {
@@ -133,11 +140,15 @@ export interface PaginatedResponse<T> {
 }
 
 export const carsApi = {
-  list: (params?: { city?: string; min_price?: number; max_price?: number; page?: number; limit?: number }) => {
+  list: (params?: { city?: string; min_price?: number; max_price?: number; category?: string; transmission?: string; min_passengers?: number; min_luggage?: number; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
     if (params?.city) query.set('city', params.city);
     if (params?.min_price) query.set('min_price', String(params.min_price));
     if (params?.max_price) query.set('max_price', String(params.max_price));
+    if (params?.category) query.set('category', params.category);
+    if (params?.transmission) query.set('transmission', params.transmission);
+    if (params?.min_passengers) query.set('min_passengers', String(params.min_passengers));
+    if (params?.min_luggage) query.set('min_luggage', String(params.min_luggage));
     if (params?.page) query.set('page', String(params.page));
     if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();
@@ -188,4 +199,51 @@ export const bookingsApi = {
     }),
   cancel: (id: string) =>
     request<Booking>(`/bookings/${id}/cancel`, { method: 'PATCH' }),
+};
+
+export interface Review {
+  id: string;
+  booking_id: string;
+  car_id: string;
+  user_id: string;
+  rating: number;
+  review_text: string;
+  created_at: string;
+  reviewer_name: string;
+}
+
+export interface CarReviewsResponse {
+  reviews: Review[];
+  averageRating: number | null;
+  reviewCount: number;
+}
+
+export const reviewsApi = {
+  getByCarId: (carId: string, page = 1, limit = 10) =>
+    request<CarReviewsResponse>(`/reviews/car/${carId}?page=${page}&limit=${limit}`),
+  create: (data: { bookingId: string; rating: number; reviewText?: string }) =>
+    request<Review>('/reviews', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
+export interface SupportMessage {
+  id: string;
+  conversation_id: string;
+  sender_type: 'user' | 'support';
+  message: string;
+  created_at: string;
+}
+
+export const supportApi = {
+  getConversation: () =>
+    request<{ id: string; user_id: string; status: string }>('/support/conversation'),
+  getMessages: (page = 1, limit = 50) =>
+    request<SupportMessage[]>(`/support/conversation/messages?page=${page}&limit=${limit}`),
+  sendMessage: (message: string) =>
+    request<SupportMessage>('/support/conversation/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
 };
