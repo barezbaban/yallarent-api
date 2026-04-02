@@ -68,4 +68,12 @@ async function updatePassword(phone, passwordHash) {
   return rows[0];
 }
 
-module.exports = { findByPhone, create, findById, update, incrementFailedAttempts, resetFailedAttempts, updatePassword, markVerified };
+async function updateUnverified(phone, { fullName, email, passwordHash, city }) {
+  await pool.query(
+    `UPDATE users SET full_name = $2, email = $3, password_hash = $4, city = $5
+     WHERE phone = $1 AND is_verified = FALSE`,
+    [phone, fullName, email || '', passwordHash, city || '']
+  );
+}
+
+module.exports = { findByPhone, create, findById, update, incrementFailedAttempts, resetFailedAttempts, updatePassword, markVerified, updateUnverified };

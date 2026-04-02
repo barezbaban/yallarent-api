@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -26,7 +26,14 @@ export default function VerifyOtpScreen() {
   const isSignupFlow = flow === 'signup';
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(60);
   const inputs = useRef<(TextInput | null)[]>([]);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const handleChange = (text: string, index: number) => {
     const digit = text.replace(/[^0-9]/g, '');
@@ -75,8 +82,10 @@ export default function VerifyOtpScreen() {
   };
 
   const handleResend = async () => {
+    if (cooldown > 0) return;
     try {
       await passwordApi.requestReset(phone!);
+      setCooldown(60);
       showAlert({ title: 'Code Sent', message: 'A new verification code has been sent', type: 'success' });
     } catch {}
   };
@@ -139,10 +148,18 @@ export default function VerifyOtpScreen() {
         </Pressable>
 
         <View style={styles.resendRow}>
-          <Text style={styles.resendText}>Didn't receive the code? </Text>
-          <Pressable onPress={handleResend}>
-            <Text style={styles.resendLink}>Resend</Text>
-          </Pressable>
+          {cooldown > 0 ? (
+            <Text style={styles.resendText}>
+              Resend code in <Text style={styles.cooldownTime}>{cooldown}s</Text>
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.resendText}>Didn't receive the code? </Text>
+              <Pressable onPress={handleResend}>
+                <Text style={styles.resendLink}>Resend</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -204,4 +221,5 @@ const styles = StyleSheet.create({
   },
   resendText: { fontSize: FontSize.body, color: Colors.foregroundSecondary },
   resendLink: { fontSize: FontSize.body, color: Colors.primary, fontWeight: FontWeight.semibold },
+  cooldownTime: { fontWeight: FontWeight.semibold, color: Colors.primary },
 });

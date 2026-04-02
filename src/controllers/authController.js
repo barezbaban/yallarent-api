@@ -14,17 +14,29 @@ function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-// Store OTP in database
+// Store OTP in database (with 60-second per-phone cooldown)
 async function storeOtp(phone, otp) {
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   try {
+    // Prevent OTP spam: reject if one was sent in the last 60 seconds
+    const { rows: recent } = await pool.query(
+      `SELECT id FROM otp_codes
+       WHERE phone = $1 AND used = FALSE AND created_at > NOW() - INTERVAL '60 seconds'`,
+      [phone]
+    );
+    if (recent.length > 0) {
+      return { throttled: true };
+    }
+
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await pool.query(
       `INSERT INTO otp_codes (phone, otp, expires_at) VALUES ($1, $2, $3)`,
       [phone, otp, expiresAt]
     );
+    return { throttled: false };
   } catch {
     // Table might not exist yet, fall back to memory
-    resetTokens.set(phone, { otp, expires: expiresAt.getTime() });
+    resetTokens.set(phone, { otp, expires: Date.now() + 10 * 60 * 1000 });
+    return { throttled: false };
   }
 }
 
@@ -60,15 +72,29 @@ const resetTokens = new Map();
 
 async function signup(req, res) {
   try {
-    const { fullName, phone, password, city, email } = req.body;
+    const { fullName, phone, password, city, email, language } = req.body;
 
     if (!fullName || !phone || !password) {
       return res.status(400).json({ error: 'Full name, phone, and password are required' });
     }
 
     const existing = await userQueries.findByPhone(phone);
-    if (existing) {
+    if (existing && existing.is_verified) {
       return res.status(409).json({ error: 'Unable to create account with this phone number' });
+    }
+
+    if (existing && !existing.is_verified) {
+      // Unverified account — update details and resend OTP
+      const passwordHash = await bcrypt.hash(password, 10);
+      await userQueries.updateUnverified(phone, { fullName, email, passwordHash, city });
+
+      const otp = generateOtp();
+      const otpResult = await storeOtp(phone, otp);
+      if (!otpResult.throttled && emailService.isConfigured() && email) {
+        emailService.sendOtp(email, otp, { name: fullName, language }).catch((err) => console.error('[Email] OTP send failed:', err.message));
+      }
+
+      return res.status(200).json({ message: 'Verification code resent. Please verify your phone number.', phone });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -76,11 +102,11 @@ async function signup(req, res) {
 
     // Generate and store OTP
     const otp = generateOtp();
-    await storeOtp(phone, otp);
+    const otpResult = await storeOtp(phone, otp);
 
-    // Send OTP via email if user provided one
-    if (emailService.isConfigured() && email) {
-      emailService.sendOtp(email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+    // Send OTP via email if not throttled and user provided one
+    if (!otpResult.throttled && emailService.isConfigured() && email) {
+      emailService.sendOtp(email, otp, { name: fullName, language }).catch((err) => console.error('[Email] OTP send failed:', err.message));
     }
 
     res.status(201).json({ message: 'Account created. Please verify your phone number.', phone });
@@ -145,9 +171,9 @@ async function login(req, res) {
     if (user.is_verified === false) {
       // Re-send OTP
       const otp = generateOtp();
-      await storeOtp(phone, otp);
-      if (emailService.isConfigured() && user.email) {
-        emailService.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+      const otpResult = await storeOtp(phone, otp);
+      if (!otpResult.throttled && emailService.isConfigured() && user.email) {
+        emailService.sendOtp(user.email, otp, { name: user.full_name }).catch((err) => console.error('[Email] OTP send failed:', err.message));
       }
       return res.status(403).json({ error: 'Account not verified', phone, requiresVerification: true });
     }
@@ -184,17 +210,17 @@ async function updateProfile(req, res) {
 
 async function requestReset(req, res) {
   try {
-    const { phone } = req.body;
+    const { phone, language } = req.body;
     const user = await userQueries.findByPhone(phone);
     if (!user) {
       return res.json({ message: 'If this phone is registered, you will receive a code' });
     }
 
     const otp = generateOtp();
-    await storeOtp(phone, otp);
+    const otpResult = await storeOtp(phone, otp);
 
-    if (emailService.isConfigured() && user.email) {
-      emailService.sendOtp(user.email, otp).catch((err) => console.error('[Email] OTP send failed:', err.message));
+    if (!otpResult.throttled && emailService.isConfigured() && user.email) {
+      emailService.sendOtp(user.email, otp, { name: user.full_name, language }).catch((err) => console.error('[Email] OTP send failed:', err.message));
     }
 
     res.json({ message: 'If this phone is registered, you will receive a code' });

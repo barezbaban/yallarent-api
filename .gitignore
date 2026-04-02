@@ -2,4 +2,5 @@ node_modules
 .env
 .expo
 dist
+portal/dist
 *.tsbuildinfo

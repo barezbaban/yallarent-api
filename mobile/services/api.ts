@@ -114,10 +114,10 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ phone, password }),
     }),
-  signup: (fullName: string, phone: string, password: string, city: string, email?: string) =>
+  signup: (fullName: string, phone: string, password: string, city: string, email?: string, language?: string) =>
     request<SignupResponse>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ fullName, phone, password, city, email }),
+      body: JSON.stringify({ fullName, phone, password, city, email, language }),
     }),
   verifySignup: (phone: string, otp: string) =>
     request<AuthResponse>('/auth/verify-signup', {
@@ -138,6 +138,24 @@ export interface PaginatedResponse<T> {
   limit: number;
   totalPages: number;
 }
+
+export interface Company {
+  id: string;
+  name: string;
+  city: string;
+  phone: string;
+  logo_url: string | null;
+  address: string;
+  is_active: boolean;
+  created_at: string;
+  car_count: number;
+}
+
+export const companiesApi = {
+  list: () => request<Company[]>('/companies'),
+  getById: (id: string) => request<Company>(`/companies/${id}`),
+  getCars: (id: string) => request<Car[]>(`/companies/${id}/cars`),
+};
 
 export const carsApi = {
   list: (params?: { city?: string; min_price?: number; max_price?: number; category?: string; transmission?: string; min_passengers?: number; min_luggage?: number; page?: number; limit?: number }) => {

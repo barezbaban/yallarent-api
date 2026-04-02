@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -14,6 +15,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const portalRoutes = require('./routes/portalRoutes');
 
 const app = express();
 
@@ -54,6 +56,9 @@ const authLimiter = rateLimit({
 app.use(globalLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/signup', authLimiter);
+app.use('/api/auth/request-reset', authLimiter);
+app.use('/api/auth/verify-otp', authLimiter);
+app.use('/api/auth/verify-signup', authLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/cars', carRoutes);
@@ -65,9 +70,17 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/portal', portalRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Serve backoffice portal static files
+const portalDir = path.join(__dirname, '..', 'portal', 'dist');
+app.use('/portal', express.static(portalDir));
+app.get('/portal/*', (req, res) => {
+  res.sendFile(path.join(portalDir, 'index.html'));
 });
 
 module.exports = app;

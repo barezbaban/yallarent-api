@@ -20,6 +20,7 @@ import { IRAQ_CITIES } from '../constants/cities';
 import { useAuth } from '../services/auth';
 import { useAlert } from '../services/alert';
 import { t } from '../services/i18n';
+import i18n from '../services/i18n';
 
 type Tab = 'login' | 'signup';
 
@@ -52,7 +53,8 @@ export default function LoginScreen() {
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [city, setCity] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -80,8 +82,8 @@ export default function LoginScreen() {
       showAlert({ title: 'Missing Fields', message: 'Phone and password are required', type: 'warning' });
       return;
     }
-    if (tab === 'signup' && !fullName) {
-      showAlert({ title: 'Missing Fields', message: 'Full name is required', type: 'warning' });
+    if (tab === 'signup' && (!firstName || !lastName)) {
+      showAlert({ title: 'Missing Fields', message: 'First and last name are required', type: 'warning' });
       return;
     }
     if (tab === 'signup' && !passwordRules.every((r) => r.met)) {
@@ -99,7 +101,7 @@ export default function LoginScreen() {
         await login(cleanPhone, password);
         router.replace(returnTo || '/');
       } else {
-        await signup(fullName, cleanPhone, password, city, email || undefined);
+        await signup(`${firstName} ${lastName}`.trim(), cleanPhone, password, city, email || undefined, i18n.locale);
         router.push({
           pathname: '/verify-otp',
           params: { phone: cleanPhone, flow: 'signup', returnTo: returnTo || '' },
@@ -157,16 +159,33 @@ export default function LoginScreen() {
         {/* Sign Up extra fields */}
         {tab === 'signup' && (
           <>
-            <Text style={styles.label}>Full Name</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="person-outline" size={20} color={Colors.foregroundMuted} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your full name"
-                placeholderTextColor={Colors.foregroundMuted}
-                value={fullName}
-                onChangeText={setFullName}
-              />
+            <View style={styles.nameRow}>
+              <View style={styles.nameField}>
+                <Text style={styles.label}>First Name</Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="person-outline" size={20} color={Colors.foregroundMuted} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="First name"
+                    placeholderTextColor={Colors.foregroundMuted}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                  />
+                </View>
+              </View>
+              <View style={styles.nameField}>
+                <Text style={styles.label}>Last Name</Text>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="person-outline" size={20} color={Colors.foregroundMuted} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Last name"
+                    placeholderTextColor={Colors.foregroundMuted}
+                    value={lastName}
+                    onChangeText={setLastName}
+                  />
+                </View>
+              </View>
             </View>
 
             <Text style={styles.label}>Email</Text>
@@ -436,6 +455,13 @@ const styles = StyleSheet.create({
     color: Colors.foreground,
     marginBottom: Spacing.sm,
     marginTop: Spacing.lg,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  nameField: {
+    flex: 1,
   },
   emailHint: {
     fontSize: 12,

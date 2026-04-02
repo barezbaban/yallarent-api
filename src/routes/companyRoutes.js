@@ -7,5 +7,6 @@ const router = Router();
 
 router.get('/', companyController.list);
 router.get('/:id', validateParams(schemas.uuidParam), companyController.getById);
+router.get('/:id/cars', validateParams(schemas.uuidParam), companyController.getCars);
 
 module.exports = router;

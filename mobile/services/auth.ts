@@ -12,7 +12,7 @@ export interface AuthState {
   token: string | null;
   guestMode: boolean;
   login: (phone: string, password: string) => Promise<void>;
-  signup: (fullName: string, phone: string, password: string, city: string, email?: string) => Promise<string>;
+  signup: (fullName: string, phone: string, password: string, city: string, email?: string, language?: string) => Promise<string>;
   verifySignup: (phone: string, otp: string) => Promise<void>;
   logout: () => void;
   updateUser: (data: { full_name: string; phone: string; city?: string }) => void;

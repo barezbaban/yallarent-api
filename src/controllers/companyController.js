@@ -19,4 +19,13 @@ async function getById(req, res) {
   }
 }
 
-module.exports = { list, getById };
+async function getCars(req, res) {
+  try {
+    const cars = await companyQueries.findCars(req.params.id);
+    res.json(cars);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch company cars' });
+  }
+}
+
+module.exports = { list, getById, getCars };

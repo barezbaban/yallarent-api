@@ -85,8 +85,8 @@ export default function RootLayout() {
     setGuestMode(false);
   }, []);
 
-  const signup = useCallback(async (fullName: string, phone: string, password: string, city: string, email?: string): Promise<string> => {
-    const res = await authApi.signup(fullName, phone, password, city, email);
+  const signup = useCallback(async (fullName: string, phone: string, password: string, city: string, email?: string, language?: string): Promise<string> => {
+    const res = await authApi.signup(fullName, phone, password, city, email, language);
     return res.phone;
   }, []);
 
@@ -221,6 +221,10 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="support-chat"
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="partner/[id]"
           options={{ animation: 'slide_from_right' }}
         />
       </Stack>

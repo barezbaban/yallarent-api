@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceSecondary,
   },
   buttonDestructive: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: Colors.error,
   },
   buttonPrimary: {
     backgroundColor: Colors.primary,
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     color: Colors.foregroundSecondary,
   },
   buttonTextDestructive: {
-    color: Colors.error,
+    color: '#FFFFFF',
   },
   buttonTextPrimary: {
     color: Colors.surfacePrimary,
