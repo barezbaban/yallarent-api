@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -57,9 +58,13 @@ export default function PartnersScreen() {
         style={styles.card}
         onPress={() => router.push(`/partner/${item.id}`)}
       >
-        <View style={[styles.logoCircle, { backgroundColor: color }]}>
-          <Text style={styles.logoLetter}>{getInitial(item.name)}</Text>
-        </View>
+        {item.logo_url ? (
+          <Image source={{ uri: item.logo_url }} style={styles.logoImage} />
+        ) : (
+          <View style={[styles.logoCircle, { backgroundColor: color }]}>
+            <Text style={styles.logoLetter}>{getInitial(item.name)}</Text>
+          </View>
+        )}
         <View style={styles.cardContent}>
           <Text style={styles.companyName} numberOfLines={1}>{item.name}</Text>
           <View style={styles.metaRow}>
@@ -197,6 +202,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: 14,
     marginBottom: Spacing.md,
+  },
+  logoImage: {
+    width: 52,
+    height: 52,
+    borderRadius: Radius.button,
   },
   logoCircle: {
     width: 52,

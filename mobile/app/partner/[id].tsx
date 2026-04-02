@@ -132,9 +132,13 @@ export default function PartnerDetailScreen() {
     <>
       {/* Hero Card */}
       <View style={styles.heroCard}>
-        <View style={[styles.heroLogo, { backgroundColor: logoColor }]}>
-          <Text style={styles.heroLogoLetter}>{getInitial(company.name)}</Text>
-        </View>
+        {company.logo_url ? (
+          <Image source={{ uri: company.logo_url }} style={styles.heroLogoImage} />
+        ) : (
+          <View style={[styles.heroLogo, { backgroundColor: logoColor }]}>
+            <Text style={styles.heroLogoLetter}>{getInitial(company.name)}</Text>
+          </View>
+        )}
         <Text style={styles.heroName}>{company.name}</Text>
         <View style={styles.locRow}>
           <Ionicons name="location-outline" size={14} color={Colors.foregroundMuted} />
@@ -244,6 +248,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.lg,
     borderRadius: Radius.card,
+  },
+  heroLogoImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    marginBottom: Spacing.md,
   },
   heroLogo: {
     width: 72,
