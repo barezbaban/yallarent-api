@@ -3,6 +3,8 @@ import { isAuthenticated } from './api';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Partners from './pages/Partners';
+import PartnerDetail from './pages/PartnerDetail';
 
 function ProtectedLayout() {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
@@ -31,7 +33,8 @@ export default function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/users" element={<PlaceholderPage title="Users" />} />
-          <Route path="/partners" element={<PlaceholderPage title="Partners" />} />
+          <Route path="/partners" element={<Partners />} />
+          <Route path="/partners/:id" element={<PartnerDetail />} />
           <Route path="/cars" element={<PlaceholderPage title="Cars" />} />
           <Route path="/bookings" element={<PlaceholderPage title="Bookings" />} />
           <Route path="/reviews" element={<PlaceholderPage title="Reviews" />} />

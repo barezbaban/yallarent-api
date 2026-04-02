@@ -58,3 +58,31 @@ export async function fetchDashboard() {
 export async function fetchMe() {
   return request('/me');
 }
+
+// Companies / Partners
+const COMPANIES_BASE = '/api/companies';
+
+export async function fetchCompanies() {
+  const token = getToken();
+  const res = await fetch(COMPANIES_BASE, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.json();
+}
+
+export async function fetchCompany(id) {
+  const token = getToken();
+  const res = await fetch(`${COMPANIES_BASE}/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Company not found');
+  return res.json();
+}
+
+export async function fetchCompanyCars(id) {
+  const token = getToken();
+  const res = await fetch(`${COMPANIES_BASE}/${id}/cars`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.json();
+}
