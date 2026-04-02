@@ -79,7 +79,7 @@ app.get('/api/health', (req, res) => {
 // Serve backoffice portal static files
 const portalDir = path.join(__dirname, '..', 'portal', 'dist');
 app.use('/portal', express.static(portalDir));
-app.get('/portal/*', (req, res) => {
+app.get('/portal/{*splat}', (req, res) => {
   res.sendFile(path.join(portalDir, 'index.html'));
 });
 
