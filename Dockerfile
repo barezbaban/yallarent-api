@@ -8,10 +8,8 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 # Install and build portal
-COPY portal/package.json portal/package-lock.json ./portal/
-RUN cd portal && npm install
 COPY portal/ ./portal/
-RUN cd portal && npm run build
+RUN cd portal && npm install && npm run build
 
 # Copy backend source
 COPY src/ ./src/
