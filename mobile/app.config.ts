@@ -1,9 +1,9 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
 const API_URLS: Record<string, string> = {
-  dev: 'https://yallarent-api-dev.up.railway.app/api',
-  stage: 'https://yallarent-api-stage.up.railway.app/api',
-  production: 'https://yallarent-api-production.up.railway.app/api',
+  dev: 'https://strong-recreation-dev.up.railway.app/api',
+  stage: 'https://strong-recreation-dev.up.railway.app/api',
+  production: 'https://strong-recreation-dev.up.railway.app/api',
 };
 
 export default ({ config }: ConfigContext): ExpoConfig => {
@@ -41,6 +41,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins: [
       'expo-router',
       'expo-localization',
+      'expo-splash-screen',
+      'expo-secure-store',
       [
         'expo-notifications',
         {
@@ -49,6 +51,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
       '@react-native-community/datetimepicker',
     ],
+    splash: {
+      backgroundColor: '#0F2B46',
+      resizeMode: 'contain',
+    },
     extra: {
       apiUrl,
       appEnv: env,

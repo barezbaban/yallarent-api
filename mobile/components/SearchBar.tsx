@@ -1,3 +1,4 @@
+import React from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../constants/theme';
@@ -9,7 +10,7 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-export default function SearchBar({ value, onChangeText, placeholder }: SearchBarProps) {
+function SearchBar({ value, onChangeText, placeholder }: SearchBarProps) {
   return (
     <View style={styles.container}>
       <Ionicons name="search" size={20} color={Colors.foregroundMuted} />
@@ -23,6 +24,8 @@ export default function SearchBar({ value, onChangeText, placeholder }: SearchBa
     </View>
   );
 }
+
+export default React.memo(SearchBar);
 
 const styles = StyleSheet.create({
   container: {

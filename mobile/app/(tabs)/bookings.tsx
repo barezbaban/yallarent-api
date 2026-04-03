@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import FilterChips from '../../components/FilterChips';
 import BookingCard from '../../components/BookingCard';
@@ -17,38 +19,22 @@ export default function BookingsScreen() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const { language } = useLanguage();
+  const queryClient = useQueryClient();
   const TABS = [t('bookings.all'), t('bookings.upcoming'), t('bookings.past')];
   const [activeTab, setActiveTab] = useState(TABS[0]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchBookings = useCallback(async () => {
-    if (!user) {
-      setBookings([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await bookingsApi.list();
-      setBookings(data);
-    } catch {
-      setBookings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  const { data: bookings = [], isLoading: loading, refetch: fetchBookings } = useQuery({
+    queryKey: ['bookings', user?.id],
+    queryFn: () => bookingsApi.list(),
+    enabled: !!user,
+  });
 
-  useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
-
-  const filtered = bookings.filter((b) => {
+  const filtered = useMemo(() => bookings.filter((b) => {
     if (activeTab === t('bookings.all')) return true;
     if (activeTab === t('bookings.upcoming')) return b.status === 'pending' || b.status === 'confirmed';
     if (activeTab === t('bookings.past')) return b.status === 'completed' || b.status === 'cancelled';
     return true;
-  });
+  }), [bookings, activeTab]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -75,9 +61,10 @@ export default function BookingsScreen() {
           </Pressable>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={filtered}
           keyExtractor={(item) => item.id}
+
           renderItem={({ item }) => (
             <BookingCard
               carName={item.make && item.model ? `${item.make} ${item.model} ${item.year}` : `Booking`}
@@ -102,7 +89,7 @@ export default function BookingsScreen() {
                       onPress: async () => {
                         try {
                           await bookingsApi.cancel(item.id);
-                          fetchBookings();
+                          queryClient.invalidateQueries({ queryKey: ['bookings'] });
                         } catch {
                           showAlert({ title: t('common.error'), message: t('bookings.cancelFailed'), type: 'error' });
                         }
@@ -116,6 +103,7 @@ export default function BookingsScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
+
       )}
     </SafeAreaView>
   );

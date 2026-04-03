@@ -1,4 +1,6 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 
@@ -25,7 +27,7 @@ const STATUS_CONFIG = {
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1549317661-bd32c8ce0afa?w=200&q=80';
 
-export default function BookingCard({
+function BookingCard({
   carName,
   company,
   imageUrl,
@@ -46,7 +48,9 @@ export default function BookingCard({
         <Image
           source={{ uri: imageUrl || PLACEHOLDER_IMAGE }}
           style={styles.image}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={150}
         />
         <View style={styles.info}>
           <Text style={styles.carName} numberOfLines={1}>{carName}</Text>
@@ -80,6 +84,8 @@ export default function BookingCard({
     </Pressable>
   );
 }
+
+export default React.memo(BookingCard);
 
 const styles = StyleSheet.create({
   card: {

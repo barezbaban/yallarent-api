@@ -1,13 +1,13 @@
-import { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
-  Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
   StyleSheet,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Colors } from '../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -17,7 +17,7 @@ interface ImageCarouselProps {
   height?: number;
 }
 
-export default function ImageCarousel({ images, height = 280 }: ImageCarouselProps) {
+function ImageCarousel({ images, height = 280 }: ImageCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
@@ -42,7 +42,8 @@ export default function ImageCarousel({ images, height = 280 }: ImageCarouselPro
           <Image
             source={{ uri: item }}
             style={[styles.image, { height, width: SCREEN_WIDTH }]}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="memory-disk"
           />
         )}
       />
@@ -59,6 +60,8 @@ export default function ImageCarousel({ images, height = 280 }: ImageCarouselPro
     </View>
   );
 }
+
+export default React.memo(ImageCarousel);
 
 const styles = StyleSheet.create({
   container: {

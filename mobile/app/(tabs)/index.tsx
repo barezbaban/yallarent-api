@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -118,13 +119,14 @@ export default function CarsScreen() {
   const [filterResultCount, setFilterResultCount] = useState<number | null>(null);
   const filterCountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const activeFilterCount =
+  const activeFilterCount = useMemo(() =>
     (cityFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (minPrice || maxPrice ? 1 : 0) +
-    (transmissionFilter ? 1 : 0) + (passengersFilter ? 1 : 0) + (luggageFilter ? 1 : 0);
+    (transmissionFilter ? 1 : 0) + (passengersFilter ? 1 : 0) + (luggageFilter ? 1 : 0),
+    [cityFilter, categoryFilter, minPrice, maxPrice, transmissionFilter, passengersFilter, luggageFilter]);
 
   // Sticky compact search bar
   const insets = useSafeAreaInsets();
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<any>(null);
   const formCardBottom = useRef(0);
   const stickyOpacity = useRef(new Animated.Value(0)).current;
   const [stickyVisible, setStickyVisible] = useState(false);
@@ -149,8 +151,12 @@ export default function CarsScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
-  const stickyDateLabel = `${pickupDate.toLocaleDateString('en', { month: 'short', day: 'numeric' })} – ${dropoffDate.toLocaleDateString('en', { month: 'short', day: 'numeric' })}`;
-  const stickyLabel = [selectedCity || 'All Cities', stickyDateLabel].join('  ·  ');
+  const stickyDateLabel = useMemo(() =>
+    `${pickupDate.toLocaleDateString('en', { month: 'short', day: 'numeric' })} – ${dropoffDate.toLocaleDateString('en', { month: 'short', day: 'numeric' })}`,
+    [pickupDate, dropoffDate]);
+  const stickyLabel = useMemo(() =>
+    [selectedCity || 'All Cities', stickyDateLabel].join('  ·  '),
+    [stickyDateLabel, selectedCity]);
 
   const { cars, loading, loadingMore, refreshing, error, refetch, onRefresh, loadMore } = useCars({
     city: cityFilter,
@@ -249,7 +255,7 @@ export default function CarsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <FlatList
+      <FlashList
         ref={flatListRef}
         data={loading ? [] : cars}
         keyExtractor={(item) => item.id}
@@ -267,6 +273,7 @@ export default function CarsScreen() {
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
+
         ListFooterComponent={
           loadingMore ? <ActivityIndicator style={{ paddingVertical: Spacing.lg }} color={Colors.primary} /> : null
         }

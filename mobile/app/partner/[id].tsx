@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  FlatList,
-  Image,
   Linking,
   Pressable,
   RefreshControl,
@@ -9,6 +7,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -202,10 +202,11 @@ export default function PartnerDetailScreen() {
         <View style={{ width: 22 }} />
       </View>
 
-      <FlatList
+      <FlashList
         data={displayCars}
         renderItem={renderCarCard}
         keyExtractor={(item) => item.id}
+
         ListHeaderComponent={headerComponent}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}

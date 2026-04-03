@@ -1,28 +1,28 @@
-import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { Colors, Spacing, Radius } from '../constants/theme';
 
 function Bone({ width, height, style }: { width: number | string; height: number; style?: object }) {
-  const opacity = useRef(new Animated.Value(0.3)).current;
+  const opacity = useSharedValue(0.3);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.7,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
+    opacity.value = withRepeat(
+      withTiming(0.7, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
     );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity]);
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
   return (
     <Animated.View
@@ -32,15 +32,15 @@ function Bone({ width, height, style }: { width: number | string; height: number
           height,
           backgroundColor: Colors.surfaceSecondary,
           borderRadius: Radius.tag,
-          opacity,
         },
         style,
+        animStyle,
       ]}
     />
   );
 }
 
-export default function CarCardSkeleton() {
+function CarCardSkeleton() {
   return (
     <View style={styles.card}>
       <Bone width="100%" height={180} style={{ borderRadius: 0 }} />
@@ -59,6 +59,8 @@ export default function CarCardSkeleton() {
     </View>
   );
 }
+
+export default React.memo(CarCardSkeleton);
 
 const styles = StyleSheet.create({
   card: {

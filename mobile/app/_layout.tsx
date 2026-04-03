@@ -2,13 +2,18 @@ import { useState, useCallback, useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
+import * as SplashScreen from 'expo-splash-screen';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Colors } from '../constants/theme';
 import { AuthContext } from '../services/auth';
 import { authApi, setAuthToken } from '../services/api';
 import { AlertProvider } from '../services/alert';
 import { LanguageProvider } from '../services/language';
+import { queryClient } from '../services/queryClient';
 import { registerForPushNotifications, unregisterPushNotifications } from '../services/notifications';
 import type { User } from '../services/auth';
+
+SplashScreen.preventAutoHideAsync();
 
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
@@ -51,6 +56,7 @@ export default function RootLayout() {
         }
       } catch {}
       setIsReady(true);
+      SplashScreen.hideAsync();
     })();
   }, []);
 
@@ -136,6 +142,7 @@ export default function RootLayout() {
   if (!isReady) return null;
 
   return (
+    <QueryClientProvider client={queryClient}>
     <LanguageProvider>
     <AlertProvider>
     <AuthContext.Provider value={{ user, token, guestMode, login, signup, verifySignup, logout, updateUser, enterGuestMode }}>
@@ -231,5 +238,6 @@ export default function RootLayout() {
     </AuthContext.Provider>
     </AlertProvider>
     </LanguageProvider>
+    </QueryClientProvider>
   );
 }

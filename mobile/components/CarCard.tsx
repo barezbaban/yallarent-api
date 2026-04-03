@@ -1,4 +1,6 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
@@ -10,18 +12,22 @@ interface CarCardProps {
   car: Car;
 }
 
-export default function CarCard({ car }: CarCardProps) {
+function CarCard({ car }: CarCardProps) {
   const router = useRouter();
 
+  const handlePress = useCallback(() => {
+    router.push(`/car/${car.id}`);
+  }, [car.id, router]);
+
   return (
-    <Pressable
-      style={styles.card}
-      onPress={() => router.push(`/car/${car.id}`)}
-    >
+    <Pressable style={styles.card} onPress={handlePress}>
       <Image
         source={{ uri: car.image_url || PLACEHOLDER_IMAGE }}
         style={styles.image}
-        resizeMode="cover"
+        contentFit="cover"
+        transition={200}
+        cachePolicy="memory-disk"
+        recyclingKey={car.id}
       />
       <View style={styles.content}>
         <View style={styles.titleRow}>
@@ -61,6 +67,8 @@ export default function CarCard({ car }: CarCardProps) {
     </Pressable>
   );
 }
+
+export default React.memo(CarCard);
 
 const styles = StyleSheet.create({
   card: {

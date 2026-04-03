@@ -1,3 +1,4 @@
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 
@@ -7,7 +8,7 @@ interface FilterChipsProps {
   onSelect: (filter: string) => void;
 }
 
-export default function FilterChips({ filters, selected, onSelect }: FilterChipsProps) {
+function FilterChips({ filters, selected, onSelect }: FilterChipsProps) {
   return (
     <ScrollView
       horizontal
@@ -31,6 +32,8 @@ export default function FilterChips({ filters, selected, onSelect }: FilterChips
     </ScrollView>
   );
 }
+
+export default React.memo(FilterChips);
 
 const styles = StyleSheet.create({
   container: {

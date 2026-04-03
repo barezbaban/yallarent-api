@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 import CarCard from '../components/CarCard';
 import { favoritesApi } from '../services/api';
@@ -12,29 +13,12 @@ import { t } from '../services/i18n';
 export default function FavoritesScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [favorites, setFavorites] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchFavorites = useCallback(async () => {
-    if (!user) {
-      setFavorites([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await favoritesApi.list();
-      setFavorites(data);
-    } catch {
-      setFavorites([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchFavorites();
-  }, [fetchFavorites]);
+  const { data: favorites = [], isLoading: loading } = useQuery({
+    queryKey: ['favorites', user?.id],
+    queryFn: () => favoritesApi.list(),
+    enabled: !!user,
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -61,9 +45,10 @@ export default function FavoritesScreen() {
           </Pressable>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={favorites}
           keyExtractor={(item) => item.car_id}
+
           renderItem={({ item }) => (
             <CarCard
               car={{

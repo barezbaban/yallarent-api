@@ -10,10 +10,10 @@ export function useCars(filters?: { city?: string; max_price?: number; min_price
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCars = useCallback(async (pageNum = 1, append = false) => {
+  const fetchCars = useCallback(async (pageNum = 1, append = false, silent = false) => {
     if (append) {
       setLoadingMore(true);
-    } else {
+    } else if (!silent) {
       setLoading(true);
     }
     setError(null);
@@ -33,7 +33,9 @@ export function useCars(filters?: { city?: string; max_price?: number; min_price
       setPage(result.page);
       setTotalPages(result.totalPages);
     } catch {
-      setError('Could not connect to the server. Please check your internet connection and try again.');
+      if (!silent) {
+        setError('Could not connect to the server. Please check your internet connection and try again.');
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -56,5 +58,5 @@ export function useCars(filters?: { city?: string; max_price?: number; min_price
     setRefreshing(false);
   }, [fetchCars]);
 
-  return { cars, loading, loadingMore, refreshing, error, refetch: () => fetchCars(1, false), onRefresh, loadMore, hasMore: page < totalPages };
+  return { cars, loading, loadingMore, refreshing, error, refetch: () => fetchCars(1, false, true), onRefresh, loadMore, hasMore: page < totalPages };
 }

@@ -1,20 +1,21 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { logout, getAdmin } from '../api';
+import { logout, getAdmin, hasPermission } from '../api';
 import {
   LayoutDashboard, Users, Building2, Car, Calendar,
-  Star, Headphones, Bell, Settings, LogOut,
+  Star, Headphones, Bell, Settings, LogOut, Shield,
 } from 'lucide-react';
 
 const NAV = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/users', label: 'Users', icon: Users },
-  { path: '/partners', label: 'Partners', icon: Building2 },
-  { path: '/cars', label: 'Cars', icon: Car },
-  { path: '/bookings', label: 'Bookings', icon: Calendar },
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
+  { path: '/partners', label: 'Partners', icon: Building2, permission: 'companies.view' },
+  { path: '/cars', label: 'Cars', icon: Car, permission: 'cars.view' },
+  { path: '/bookings', label: 'Bookings', icon: Calendar, permission: 'bookings.view' },
   { path: '/reviews', label: 'Reviews', icon: Star },
-  { path: '/support', label: 'Support', icon: Headphones },
+  { path: '/support', label: 'Support', icon: Headphones, permission: 'support.view' },
   { path: '/notifications', label: 'Notifications', icon: Bell },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/settings', label: 'Settings', icon: Settings, permission: 'settings.view' },
+  { path: '/roles', label: 'Roles', icon: Shield, permission: 'roles.view' },
+  { path: '/backoffice-users', label: 'Users', icon: Users, permission: 'users.view' },
 ];
 
 export default function Sidebar() {
@@ -39,7 +40,7 @@ export default function Sidebar() {
       </div>
       <div className="sidebar-label">MAIN MENU</div>
       <nav className="sidebar-nav">
-        {NAV.map(({ path, label, icon: Icon }) => (
+        {NAV.filter(item => !item.permission || hasPermission(item.permission)).map(({ path, label, icon: Icon }) => (
           <button
             key={path}
             className={`nav-item ${location.pathname === path ? 'active' : ''}`}

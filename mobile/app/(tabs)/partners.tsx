@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  FlatList,
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,9 +7,12 @@ import {
   Text,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../../constants/theme';
 import { companiesApi, Company } from '../../services/api';
 
@@ -24,32 +25,18 @@ function getInitial(name: string) {
 
 export default function PartnersScreen() {
   const router = useRouter();
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedCity, setSelectedCity] = useState('All');
 
-  const fetchCompanies = useCallback(async () => {
-    try {
-      const data = await companiesApi.list();
-      setCompanies(data);
-    } catch {
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  const { data: companies = [], isLoading: loading, refetch, isRefetching: refreshing } = useQuery({
+    queryKey: ['companies'],
+    queryFn: () => companiesApi.list(),
+  });
 
-  useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
+  const onRefresh = () => { refetch(); };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchCompanies();
-  };
-
-  const filtered = selectedCity === 'All'
-    ? companies
-    : companies.filter((c) => c.city === selectedCity);
+  const filtered = useMemo(() =>
+    selectedCity === 'All' ? companies : companies.filter((c) => c.city === selectedCity),
+    [companies, selectedCity]);
 
   const renderCompany = ({ item, index }: { item: Company; index: number }) => {
     const color = LOGO_COLORS[index % LOGO_COLORS.length];
@@ -129,10 +116,11 @@ export default function PartnersScreen() {
           ))}
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={filtered}
           renderItem={renderCompany}
           keyExtractor={(item) => item.id}
+
           contentContainerStyle={styles.listPadding}
           showsVerticalScrollIndicator={false}
           refreshControl={

@@ -1,3 +1,4 @@
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
@@ -8,7 +9,7 @@ interface ErrorStateProps {
   onRetry: () => void;
 }
 
-export default function ErrorState({ message, onRetry }: ErrorStateProps) {
+function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
@@ -25,6 +26,8 @@ export default function ErrorState({ message, onRetry }: ErrorStateProps) {
     </View>
   );
 }
+
+export default React.memo(ErrorState);
 
 const styles = StyleSheet.create({
   container: {

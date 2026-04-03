@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 import { notificationsApi, type AppNotification } from '../services/api';
 import { t } from '../services/i18n';
@@ -30,33 +31,20 @@ function timeAgo(dateStr: string): string {
 export default function NotificationsScreen() {
   const router = useRouter();
   const { language } = useLanguage();
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const data = await notificationsApi.list();
-      setNotifications(data);
-    } catch {}
-    setLoading(false);
-    setRefreshing(false);
-  }, []);
+  const { data: notifications = [], isLoading: loading, refetch, isRefetching: refreshing } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => notificationsApi.list(),
+  });
 
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchNotifications();
-  };
+  const handleRefresh = () => { refetch(); };
 
   const handleMarkAsRead = async (id: string) => {
     try {
       await notificationsApi.markAsRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      queryClient.setQueryData<AppNotification[]>(['notifications'], (old) =>
+        old?.map((n) => (n.id === id ? { ...n, read: true } : n)) ?? []
       );
     } catch {}
   };
@@ -64,11 +52,13 @@ export default function NotificationsScreen() {
   const handleMarkAllAsRead = async () => {
     try {
       await notificationsApi.markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      queryClient.setQueryData<AppNotification[]>(['notifications'], (old) =>
+        old?.map((n) => ({ ...n, read: true })) ?? []
+      );
     } catch {}
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
   const renderItem = ({ item }: { item: AppNotification }) => (
     <Pressable
@@ -116,10 +106,11 @@ export default function NotificationsScreen() {
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={notifications}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshing={refreshing}

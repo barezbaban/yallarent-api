@@ -16,6 +16,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const portalRoutes = require('./routes/portalRoutes');
+const backofficeRoutes = require('./routes/backofficeRoutes');
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/portal', portalRoutes);
+app.use('/api/backoffice', backofficeRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

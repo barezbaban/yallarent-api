@@ -107,6 +107,37 @@ const sendSupportMessage = z.object({
   message: z.string().min(1, 'Message is required').max(2000),
 });
 
+// Backoffice schemas
+const backofficeLogin = z.object({
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+const createRole = z.object({
+  name: z.string().min(1, 'Role name is required').max(100),
+  description: z.string().max(500).optional().default(''),
+  permissions: z.record(z.string(), z.boolean()),
+});
+
+const updateRole = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  permissions: z.record(z.string(), z.boolean()).optional(),
+});
+
+const createBackofficeUser = z.object({
+  fullName: z.string().min(1, 'Full name is required').max(100),
+  email: z.string().email('Valid email is required'),
+  roleId: uuid,
+});
+
+const updateBackofficeUser = z.object({
+  fullName: z.string().min(1).max(100).optional(),
+  email: z.string().email().optional(),
+  roleId: uuid.optional(),
+  isActive: z.boolean().optional(),
+});
+
 module.exports = {
   signup,
   verifySignup,
@@ -125,4 +156,9 @@ module.exports = {
   sendNotification,
   createReview,
   sendSupportMessage,
+  backofficeLogin,
+  createRole,
+  updateRole,
+  createBackofficeUser,
+  updateBackofficeUser,
 };
