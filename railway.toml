@@ -1,2 +1,5 @@
+[build]
+buildCommand = "npm install && npm run build"
+
 [deploy]
 restartPolicyType = "ON_FAILURE"
