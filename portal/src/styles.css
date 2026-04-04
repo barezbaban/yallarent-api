@@ -957,6 +957,80 @@ tbody td.muted { color: var(--text-secondary); }
   border-top: 1px solid var(--border);
   position: relative;
 }
+.support-file-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--surface-secondary, #f5f5f5);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.support-file-preview-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.support-file-preview-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.support-file-preview-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.support-file-preview-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.support-file-preview-size {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.support-file-preview-cancel {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: 4px;
+}
+.support-file-preview-cancel:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+.support-file-preview-send {
+  padding: 6px 14px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+.support-file-preview-send:hover {
+  opacity: 0.9;
+}
+.support-file-preview-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .support-input-row {
   display: flex;
   align-items: flex-end;

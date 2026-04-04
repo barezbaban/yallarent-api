@@ -78,6 +78,8 @@ export default function Support() {
   const [toast, setToast] = useState(null);
   const [imageModal, setImageModal] = useState(null); // { url, name }
   const [rating, setRating] = useState(null); // conversation rating
+  const [pendingFile, setPendingFile] = useState(null); // { file, previewUrl, name, size, type }
+  const [fileUploading, setFileUploading] = useState(false);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -326,6 +328,7 @@ export default function Support() {
     setMessages([]);
     setShowNotes(false);
     setShowCanned(false);
+    cancelPendingFile();
     setTyping(null);
     setShowNewMsgPill(false);
     setRating(null);
@@ -435,15 +438,36 @@ export default function Support() {
     }
   };
 
-  // File upload
-  const handleFileUpload = async (e) => {
+  // File select → preview
+  const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file || !selectedId) return;
+    e.target.value = '';
+
+    // Validate type
+    const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowed.includes(file.type)) {
+      setToast({ type: 'error', message: 'Only JPG, PNG, and PDF files are allowed.' });
+      return;
+    }
+    // Validate size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setToast({ type: 'error', message: 'File must be under 5 MB.' });
+      return;
+    }
+
+    const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+    setPendingFile({ file, previewUrl, name: file.name, size: file.size, type: file.type });
+  };
+
+  const handleSendFile = async () => {
+    if (!pendingFile || !selectedId || fileUploading) return;
+    setFileUploading(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', pendingFile.file);
       formData.append('content', '');
-      formData.append('messageType', file.type.startsWith('image/') ? 'image' : 'file');
+      formData.append('messageType', pendingFile.type.startsWith('image/') ? 'image' : 'file');
       const token = getToken();
       const res = await fetch(`/api/agent/chat/conversations/${selectedId}/messages`, {
         method: 'POST',
@@ -453,11 +477,19 @@ export default function Support() {
       if (!res.ok) throw new Error('Upload failed');
       const msg = await res.json();
       setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+      if (pendingFile.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
+      setPendingFile(null);
       setTimeout(() => scrollToBottom(true), 50);
     } catch (err) {
       console.error('Failed to upload file:', err);
+      setToast({ type: 'error', message: 'Failed to upload file.' });
     }
-    e.target.value = '';
+    setFileUploading(false);
+  };
+
+  const cancelPendingFile = () => {
+    if (pendingFile?.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
+    setPendingFile(null);
   };
 
   // Add note
@@ -758,11 +790,30 @@ export default function Support() {
                         ))}
                       </div>
                     )}
+                    {pendingFile && (
+                      <div className="support-file-preview">
+                        {pendingFile.previewUrl ? (
+                          <img src={pendingFile.previewUrl} alt="Preview" className="support-file-preview-img" />
+                        ) : (
+                          <div className="support-file-preview-icon"><Paperclip size={20} /></div>
+                        )}
+                        <div className="support-file-preview-info">
+                          <span className="support-file-preview-name">{pendingFile.name}</span>
+                          <span className="support-file-preview-size">{(pendingFile.size / 1024).toFixed(0)} KB</span>
+                        </div>
+                        <button className="support-file-preview-cancel" onClick={cancelPendingFile} title="Cancel">
+                          <X size={16} />
+                        </button>
+                        <button className="support-file-preview-send" onClick={handleSendFile} disabled={fileUploading}>
+                          {fileUploading ? 'Sending…' : 'Send'}
+                        </button>
+                      </div>
+                    )}
                     <div className="support-input-row">
                       <button className="icon-btn" onClick={() => fileInputRef.current?.click()}>
                         <Paperclip size={18} />
                       </button>
-                      <input type="file" ref={fileInputRef} hidden accept="image/jpeg,image/png" onChange={handleFileUpload} />
+                      <input type="file" ref={fileInputRef} hidden accept="image/jpeg,image/png,application/pdf" onChange={handleFileUpload} />
                       <textarea
                         ref={inputRef}
                         className="support-input"

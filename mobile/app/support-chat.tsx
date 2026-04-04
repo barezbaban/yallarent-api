@@ -98,6 +98,7 @@ export default function SupportChatScreen() {
 
   // Attachment picker
   const [showAttachSheet, setShowAttachSheet] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<{ uri: string; name: string; type: string } | null>(null);
 
   // Close chat
   const [showCloseSheet, setShowCloseSheet] = useState(false);
@@ -276,6 +277,7 @@ export default function SupportChatScreen() {
     setTyping(false);
     setShowNewMsgPill(false);
     setMsgStatuses({});
+    setPendingAttachment(null);
     setRating(0);
     setFeedbackText('');
     setSubmittedRating(null);
@@ -433,11 +435,22 @@ export default function SupportChatScreen() {
       return;
     }
 
+    // Set preview instead of sending immediately
+    setPendingAttachment(file);
+  };
+
+  const handleSendAttachment = async () => {
+    if (!pendingAttachment || !selectedConvId || isClosed) return;
+    const file = pendingAttachment;
+    const caption = inputText.trim();
+    setPendingAttachment(null);
+    setInputText('');
+
     // Optimistic UI
     const tempId = `temp-img-${Date.now()}`;
     const tempMsg: ChatMessage = {
       id: tempId, conversation_id: selectedConvId, sender_type: 'customer', sender_id: null,
-      content: '', message_type: 'image', file_url: file.uri, file_name: file.name,
+      content: caption, message_type: 'image', file_url: file.uri, file_name: file.name,
       is_read: false, is_deleted: false, edited_at: null, created_at: new Date().toISOString(),
     };
     setMessages(prev => [...prev, tempMsg]);
@@ -830,24 +843,40 @@ export default function SupportChatScreen() {
             </Pressable>
           </View>
         ) : (
-          <View style={styles.inputBar}>
-            <Pressable style={styles.attachBtn} onPress={() => setShowAttachSheet(true)}>
-              <Ionicons name="image-outline" size={22} color={Colors.foregroundMuted} />
-            </Pressable>
-            <TextInput
-              style={styles.input}
-              placeholder="Type a message..."
-              placeholderTextColor={Colors.foregroundMuted}
-              value={inputText}
-              onChangeText={handleInputChange}
-              multiline
-              maxLength={2000}
-              onSubmitEditing={handleSend}
-              blurOnSubmit={false}
-            />
-            <Pressable style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]} onPress={handleSend} disabled={!inputText.trim() || sending}>
-              <Ionicons name="send" size={20} color="#FFF" />
-            </Pressable>
+          <View>
+            {pendingAttachment && (
+              <View style={styles.attachPreview}>
+                <Image source={{ uri: pendingAttachment.uri }} style={styles.attachPreviewImage} />
+                <Pressable style={styles.attachPreviewClose} onPress={() => setPendingAttachment(null)}>
+                  <Ionicons name="close-circle" size={22} color="rgba(0,0,0,0.6)" />
+                </Pressable>
+              </View>
+            )}
+            <View style={[styles.inputBar, pendingAttachment && { borderTopWidth: 0 }]}>
+              <Pressable style={styles.attachBtn} onPress={() => setShowAttachSheet(true)}>
+                <Ionicons name="image-outline" size={22} color={Colors.foregroundMuted} />
+              </Pressable>
+              <TextInput
+                style={styles.input}
+                placeholder={pendingAttachment ? 'Add a caption...' : 'Type a message...'}
+                placeholderTextColor={Colors.foregroundMuted}
+                value={inputText}
+                onChangeText={handleInputChange}
+                multiline
+                maxLength={2000}
+                onSubmitEditing={pendingAttachment ? handleSendAttachment : handleSend}
+                blurOnSubmit={false}
+              />
+              {pendingAttachment ? (
+                <Pressable style={[styles.sendBtn, sending && styles.sendBtnDisabled]} onPress={handleSendAttachment} disabled={sending}>
+                  <Ionicons name="send" size={20} color="#FFF" />
+                </Pressable>
+              ) : (
+                <Pressable style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]} onPress={handleSend} disabled={!inputText.trim() || sending}>
+                  <Ionicons name="send" size={20} color="#FFF" />
+                </Pressable>
+              )}
+            </View>
           </View>
         )}
       </KeyboardAvoidingView>
@@ -1072,6 +1101,9 @@ const styles = StyleSheet.create({
   newMsgPill: { position: 'absolute', bottom: 70, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: Colors.primary, borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 4 },
   newMsgPillText: { fontSize: 12, fontWeight: '600', color: '#FFF' },
 
+  attachPreview: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.surfacePrimary },
+  attachPreviewImage: { width: 72, height: 72, borderRadius: Radius.tag },
+  attachPreviewClose: { position: 'absolute', top: 2, left: 66, zIndex: 1 },
   inputBar: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border, gap: Spacing.sm },
   attachBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   input: { flex: 1, backgroundColor: Colors.surfaceSecondary, borderRadius: 20, paddingHorizontal: Spacing.lg, paddingVertical: Platform.OS === 'ios' ? 10 : 8, fontSize: FontSize.body, color: Colors.foreground, maxHeight: 100 },
