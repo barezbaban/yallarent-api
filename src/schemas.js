@@ -165,8 +165,16 @@ const editMessage = z.object({
 
 // Backoffice schemas
 const backofficeLogin = z.object({
-  email: z.string().email('Valid email is required'),
+  username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
+});
+
+const changePassword = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
 });
 
 const createRole = z.object({
@@ -183,13 +191,15 @@ const updateRole = z.object({
 
 const createBackofficeUser = z.object({
   fullName: z.string().min(1, 'Full name is required').max(100),
-  email: z.string().email('Valid email is required'),
+  username: z.string().min(3).max(50).regex(/^[a-z0-9._]+$/, 'Username can only contain lowercase letters, numbers, dots, and underscores').optional(),
+  email: z.string().email('Valid email is required').optional(),
   roleId: uuid,
 });
 
 const updateBackofficeUser = z.object({
   fullName: z.string().min(1).max(100).optional(),
-  email: z.string().email().optional(),
+  username: z.string().min(3).max(50).regex(/^[a-z0-9._]+$/).optional(),
+  email: z.string().email().optional().nullable(),
   roleId: uuid.optional(),
   isActive: z.boolean().optional(),
 });
@@ -213,6 +223,7 @@ module.exports = {
   createReview,
   sendSupportMessage,
   backofficeLogin,
+  changePassword,
   createRole,
   updateRole,
   createBackofficeUser,

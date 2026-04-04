@@ -1,21 +1,57 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../api';
-import { Car } from 'lucide-react';
+import { login, changePassword } from '../api';
+import { Car, Lock } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Change password state
+  const [mustChange, setMustChange] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPwd, setCurrentPwd] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      const data = await login(username, password);
+      if (data.mustChangePassword) {
+        setCurrentPwd(password);
+        setMustChange(true);
+      } else {
+        navigate('/');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await changePassword(currentPwd, newPassword);
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -23,6 +59,54 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  if (mustChange) {
+    return (
+      <div className="login-page">
+        <form className="login-card" onSubmit={handleChangePassword}>
+          <div className="login-logo">
+            <Lock size={28} />
+          </div>
+          <p className="login-subtitle" style={{ fontWeight: 600, fontSize: 18 }}>Set New Password</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
+            You must change your password before continuing.
+          </p>
+
+          {error && <div className="login-error">{error}</div>}
+
+          <div className="form-group">
+            <label className="form-label">New Password</label>
+            <input
+              className="form-input"
+              type="password"
+              placeholder="At least 8 characters"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={8}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Confirm Password</label>
+            <input
+              className="form-input"
+              type="password"
+              placeholder="Re-enter your new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={8}
+            />
+          </div>
+
+          <button className="btn-primary" type="submit" disabled={loading}>
+            {loading ? 'Saving...' : 'Set Password & Continue'}
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="login-page">
@@ -36,14 +120,16 @@ export default function Login() {
         {error && <div className="login-error">{error}</div>}
 
         <div className="form-group">
-          <label className="form-label">Email</label>
+          <label className="form-label">Username</label>
           <input
             className="form-input"
-            type="email"
-            placeholder="admin@yallarent.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            placeholder="Enter your username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             required
+            autoCapitalize="none"
+            autoCorrect="off"
           />
         </div>
 

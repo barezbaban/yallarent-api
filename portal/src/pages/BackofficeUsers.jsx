@@ -6,7 +6,7 @@ import {
 import { usePermission } from '../components/PermissionGate';
 import { Users, Plus, Edit2, KeyRound, X, Copy, Check, Eye, EyeOff } from 'lucide-react';
 
-const EMPTY_FORM = { fullName: '', email: '', roleId: '', isActive: true };
+const EMPTY_FORM = { fullName: '', username: '', email: '', roleId: '', isActive: true };
 
 export default function BackofficeUsers() {
   const [users, setUsers] = useState([]);
@@ -52,7 +52,8 @@ export default function BackofficeUsers() {
       setEditing(detail);
       setForm({
         fullName: detail.fullName,
-        email: detail.email,
+        username: detail.username || '',
+        email: detail.email || '',
         roleId: detail.roleId,
         isActive: detail.isActive,
       });
@@ -89,13 +90,14 @@ export default function BackofficeUsers() {
       } else {
         const result = await createBackofficeUser({
           fullName: form.fullName,
-          email: form.email,
+          username: form.username || undefined,
+          email: form.email || undefined,
           roleId: form.roleId,
         });
         await load();
         closeModal();
         // Show credentials
-        setCreds({ email: result.email, password: result.generatedPassword });
+        setCreds({ username: result.username, email: result.email, password: result.generatedPassword });
       }
     } catch (err) {
       setError(err.message);
@@ -107,7 +109,7 @@ export default function BackofficeUsers() {
   async function handleResetPassword(userId) {
     try {
       const result = await resetBackofficeUserPassword(userId);
-      setCreds({ email: result.email, password: result.generatedPassword });
+      setCreds({ username: result.username, email: result.email, password: result.generatedPassword });
     } catch (err) {
       setError(err.message);
     }
@@ -115,7 +117,10 @@ export default function BackofficeUsers() {
 
   function copyCredentials() {
     if (!creds) return;
-    navigator.clipboard.writeText(`Email: ${creds.email}\nPassword: ${creds.password}`);
+    const lines = [`Username: ${creds.username}`];
+    if (creds.email) lines.push(`Email: ${creds.email}`);
+    lines.push(`Password: ${creds.password}`);
+    navigator.clipboard.writeText(lines.join('\n'));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -153,7 +158,7 @@ export default function BackofficeUsers() {
           <thead>
             <tr>
               <th>USER</th>
-              <th>EMAIL</th>
+              <th>USERNAME</th>
               <th>ROLE</th>
               <th>STATUS</th>
               <th>LAST LOGIN</th>
@@ -171,7 +176,7 @@ export default function BackofficeUsers() {
                     <span className="name">{user.full_name}</span>
                   </div>
                 </td>
-                <td className="muted">{user.email}</td>
+                <td className="muted">{user.username || '—'}</td>
                 <td>
                   <span className="pill blue">{user.role_name || '—'}</span>
                 </td>
@@ -219,9 +224,15 @@ export default function BackofficeUsers() {
               </div>
               <div className="creds-box">
                 <div className="creds-row">
-                  <span className="creds-label">Email</span>
-                  <span className="creds-value">{creds.email}</span>
+                  <span className="creds-label">Username</span>
+                  <span className="creds-value" style={{ fontFamily: 'monospace' }}>{creds.username}</span>
                 </div>
+                {creds.email && (
+                  <div className="creds-row">
+                    <span className="creds-label">Email</span>
+                    <span className="creds-value">{creds.email}</span>
+                  </div>
+                )}
                 <div className="creds-row">
                   <span className="creds-label">Password</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -277,14 +288,22 @@ export default function BackofficeUsers() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Email</label>
+                  <label className="form-label">Username {!editing && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(auto-generated if empty)</span>}</label>
+                  <input
+                    className="form-input"
+                    value={form.username}
+                    onChange={e => setForm(prev => ({ ...prev, username: e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, '') }))}
+                    placeholder={editing ? '' : 'john.doe'}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></label>
                   <input
                     className="form-input"
                     type="email"
                     value={form.email}
                     onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="john@yallarent.com"
-                    required
                   />
                 </div>
                 <div className="form-group">

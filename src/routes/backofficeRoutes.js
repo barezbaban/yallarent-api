@@ -12,6 +12,7 @@ const router = Router();
 // ── Auth ──
 router.post('/auth/login', validate(schemas.backofficeLogin), backofficeAuthController.login);
 router.get('/auth/me', backofficeAuth, backofficeAuthController.me);
+router.post('/auth/change-password', backofficeAuth, validate(schemas.changePassword), backofficeAuthController.changePassword);
 
 // ── Roles ──
 router.get('/roles', backofficeAuth, requirePermission('roles.view'), roleController.list);

@@ -34,16 +34,23 @@ function backofficeRequest(path, options = {}) {
 }
 
 // ── Auth ──
-export async function login(email, password) {
-  const data = await request('/login', {
+export async function login(username, password) {
+  const data = await request('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
-  }, PORTAL_BASE, { skipAuthRedirect: true });
+    body: JSON.stringify({ username, password }),
+  }, BACKOFFICE_BASE, { skipAuthRedirect: true });
   const user = data.admin || data.user;
   localStorage.setItem('portal_token', data.token);
   localStorage.setItem('portal_admin', JSON.stringify(user));
   localStorage.setItem('portal_permissions', JSON.stringify(user.permissions || {}));
   return data;
+}
+
+export async function changePassword(currentPassword, newPassword) {
+  return backofficeRequest('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
 }
 
 export function logout() {

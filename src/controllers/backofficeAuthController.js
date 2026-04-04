@@ -6,9 +6,9 @@ const { jwtSecret } = require('../config/env');
 
 async function login(req, res) {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    const user = await backofficeUserQueries.findByEmail(email);
+    const user = await backofficeUserQueries.findByLogin(username);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -28,6 +28,7 @@ async function login(req, res) {
       {
         id: user.id,
         role_id: user.role_id,
+        role: user.role_name?.toLowerCase() === 'super admin' ? 'superadmin' : undefined,
         permissions: user.permissions || {},
         type: 'backoffice',
         jti: crypto.randomUUID(),
@@ -39,6 +40,7 @@ async function login(req, res) {
     res.json({
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         fullName: user.full_name,
         roleId: user.role_id,
@@ -46,9 +48,33 @@ async function login(req, res) {
         permissions: user.permissions || {},
       },
       token,
+      mustChangePassword: user.must_change_password,
     });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
+  }
+}
+
+async function changePassword(req, res) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await backofficeUserQueries.findById(req.admin.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await backofficeUserQueries.updatePassword(req.admin.id, passwordHash);
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to change password' });
   }
 }
 
@@ -59,6 +85,7 @@ async function me(req, res) {
 
     res.json({
       id: user.id,
+      username: user.username,
       email: user.email,
       fullName: user.full_name,
       roleId: user.role_id,
@@ -66,10 +93,11 @@ async function me(req, res) {
       permissions: user.permissions || {},
       isActive: user.is_active,
       lastLogin: user.last_login,
+      mustChangePassword: user.must_change_password,
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 }
 
-module.exports = { login, me };
+module.exports = { login, changePassword, me };
