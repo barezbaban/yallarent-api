@@ -67,6 +67,8 @@ export function getPermissions() {
 }
 
 export function hasPermission(key) {
+  const admin = getAdmin();
+  if (admin?.role === 'superadmin' || admin?.role === 'admin') return true;
   const perms = getPermissions();
   return perms[key] === true;
 }
