@@ -95,8 +95,23 @@ app.use('/api/agent/chat', chatAgentRoutes);
 // Serve uploaded chat files
 app.use('/uploads/chat', express.static(path.join(__dirname, '..', 'uploads', 'chat')));
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: 'chat-v3', chatRequests: chatRequestLog });
+app.get('/api/health', async (req, res) => {
+  const pool = require('./config/db');
+  let dbInfo = {};
+  try {
+    const convCount = await pool.query('SELECT COUNT(*)::int AS c FROM conversations');
+    const userCount = await pool.query('SELECT COUNT(*)::int AS c FROM users');
+    const dbUrl = process.env.DATABASE_URL || '';
+    const hostMatch = dbUrl.match(/@([^:\/]+)/);
+    dbInfo = {
+      convCount: convCount.rows[0].c,
+      userCount: userCount.rows[0].c,
+      dbHost: hostMatch ? hostMatch[1] : 'unknown',
+    };
+  } catch (e) {
+    dbInfo = { error: e.message };
+  }
+  res.json({ status: 'ok', version: 'chat-v4', db: dbInfo, chatRequests: chatRequestLog });
 });
 
 // Serve backoffice portal static files
