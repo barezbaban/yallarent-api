@@ -397,6 +397,9 @@ export default function SupportChatScreen() {
     setShowAttachSheet(false);
     if (!selectedConvId || isClosed) return;
 
+    // Wait for bottom sheet to fully dismiss before launching picker
+    await new Promise(resolve => setTimeout(resolve, 400));
+
     // Request permission
     const permFn = source === 'camera'
       ? ImagePicker.requestCameraPermissionsAsync
@@ -411,32 +414,30 @@ export default function SupportChatScreen() {
       return;
     }
 
-    const launchFn = source === 'camera'
-      ? ImagePicker.launchCameraAsync
-      : ImagePicker.launchImageLibraryAsync;
-    const result = await launchFn({ mediaTypes: ['images'], quality: 0.9 });
-    if (result.canceled || !result.assets[0]) return;
-
-    const asset = result.assets[0];
-
-    // Validate type
-    const mime = asset.mimeType || '';
-    if (!['image/jpeg', 'image/jpg', 'image/png'].includes(mime) && !asset.uri.match(/\.(jpe?g|png)$/i)) {
-      Alert.alert('Invalid File', 'Only JPG and PNG images are allowed.');
-      return;
-    }
-
-    // Compress
-    let file: { uri: string; name: string; type: string };
     try {
-      file = await compressImage(asset.uri);
-    } catch {
-      Alert.alert('Error', 'Failed to compress image. Please try again.');
-      return;
-    }
+      const launchFn = source === 'camera'
+        ? ImagePicker.launchCameraAsync
+        : ImagePicker.launchImageLibraryAsync;
+      const result = await launchFn({ mediaTypes: ['images'], quality: 0.9 });
+      if (result.canceled || !result.assets[0]) return;
 
-    // Set preview instead of sending immediately
-    setPendingAttachment(file);
+      const asset = result.assets[0];
+
+      // Validate type
+      const mime = asset.mimeType || '';
+      if (!['image/jpeg', 'image/jpg', 'image/png'].includes(mime) && !asset.uri.match(/\.(jpe?g|png)$/i)) {
+        Alert.alert('Invalid File', 'Only JPG and PNG images are allowed.');
+        return;
+      }
+
+      // Compress
+      const file = await compressImage(asset.uri);
+
+      // Set preview instead of sending immediately
+      setPendingAttachment(file);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to pick image. Please try again.');
+    }
   };
 
   const handleSendAttachment = async () => {

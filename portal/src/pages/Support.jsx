@@ -412,29 +412,62 @@ export default function Support() {
     }
   }, []);
 
-  // Send message
+  // Send message (handles text, pending file, or both)
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || !selectedId) return;
+    const hasPending = !!pendingFile;
+    if ((!text && !hasPending) || !selectedId) return;
     setInput('');
     stopTyping();
-    try {
-      const msg = await sendAgentMessage(selectedId, { content: text, messageType: 'text' });
-      // Optimistic add — socket will dedupe via id check
-      setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
-      // Update conversation list preview
-      setConversations(prev => {
-        const idx = prev.findIndex(c => c.id === selectedId);
-        if (idx === -1) return prev;
-        const conv = { ...prev[idx], last_message_preview: text, last_message_at: msg.created_at };
-        const next = [...prev];
-        next.splice(idx, 1);
-        return [conv, ...next];
-      });
-      // Force scroll to bottom after sending
-      setTimeout(() => scrollToBottom(true), 50);
-    } catch (err) {
-      console.error('Failed to send message:', err);
+
+    // Send pending file first if any
+    if (hasPending) {
+      setFileUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', pendingFile.file);
+        formData.append('content', '');
+        formData.append('messageType', pendingFile.type.startsWith('image/') ? 'image' : 'file');
+        const token = getToken();
+        const res = await fetch(`/api/agent/chat/conversations/${selectedId}/messages`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        if (!res.ok) throw new Error('Upload failed');
+        const msg = await res.json();
+        setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+        if (pendingFile.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
+        setPendingFile(null);
+        setConversations(prev => {
+          const idx = prev.findIndex(c => c.id === selectedId);
+          if (idx === -1) return prev;
+          const conv = { ...prev[idx], last_message_preview: '📷 Photo', last_message_at: msg.created_at };
+          const next = [...prev]; next.splice(idx, 1); return [conv, ...next];
+        });
+        setTimeout(() => scrollToBottom(true), 50);
+      } catch (err) {
+        console.error('Failed to upload file:', err);
+        setToast({ type: 'error', message: 'Failed to upload file.' });
+      }
+      setFileUploading(false);
+    }
+
+    // Send text message if any
+    if (text) {
+      try {
+        const msg = await sendAgentMessage(selectedId, { content: text, messageType: 'text' });
+        setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+        setConversations(prev => {
+          const idx = prev.findIndex(c => c.id === selectedId);
+          if (idx === -1) return prev;
+          const conv = { ...prev[idx], last_message_preview: text, last_message_at: msg.created_at };
+          const next = [...prev]; next.splice(idx, 1); return [conv, ...next];
+        });
+        setTimeout(() => scrollToBottom(true), 50);
+      } catch (err) {
+        console.error('Failed to send message:', err);
+      }
     }
   };
 
@@ -458,33 +491,6 @@ export default function Support() {
 
     const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
     setPendingFile({ file, previewUrl, name: file.name, size: file.size, type: file.type });
-  };
-
-  const handleSendFile = async () => {
-    if (!pendingFile || !selectedId || fileUploading) return;
-    setFileUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', pendingFile.file);
-      formData.append('content', '');
-      formData.append('messageType', pendingFile.type.startsWith('image/') ? 'image' : 'file');
-      const token = getToken();
-      const res = await fetch(`/api/agent/chat/conversations/${selectedId}/messages`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (!res.ok) throw new Error('Upload failed');
-      const msg = await res.json();
-      setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
-      if (pendingFile.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
-      setPendingFile(null);
-      setTimeout(() => scrollToBottom(true), 50);
-    } catch (err) {
-      console.error('Failed to upload file:', err);
-      setToast({ type: 'error', message: 'Failed to upload file.' });
-    }
-    setFileUploading(false);
   };
 
   const cancelPendingFile = () => {
@@ -801,11 +807,8 @@ export default function Support() {
                           <span className="support-file-preview-name">{pendingFile.name}</span>
                           <span className="support-file-preview-size">{(pendingFile.size / 1024).toFixed(0)} KB</span>
                         </div>
-                        <button className="support-file-preview-cancel" onClick={cancelPendingFile} title="Cancel">
+                        <button className="support-file-preview-cancel" onClick={cancelPendingFile} title="Remove attachment">
                           <X size={16} />
-                        </button>
-                        <button className="support-file-preview-send" onClick={handleSendFile} disabled={fileUploading}>
-                          {fileUploading ? 'Sending…' : 'Send'}
                         </button>
                       </div>
                     )}
@@ -823,8 +826,8 @@ export default function Support() {
                         onKeyDown={handleKeyDown}
                         rows={1}
                       />
-                      <button className="support-send-btn" onClick={handleSend} disabled={!input.trim()}>
-                        <Send size={18} />
+                      <button className="support-send-btn" onClick={handleSend} disabled={(!input.trim() && !pendingFile) || fileUploading}>
+                        {fileUploading ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
                       </button>
                     </div>
                   </div>
