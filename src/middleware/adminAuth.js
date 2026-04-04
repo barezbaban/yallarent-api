@@ -10,7 +10,7 @@ function adminAuth(req, res, next) {
   const token = header.split(' ')[1];
   try {
     const payload = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] });
-    if (payload.role !== 'admin' && payload.role !== 'superadmin') {
+    if (payload.type !== 'backoffice' && payload.role !== 'admin' && payload.role !== 'superadmin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
     req.admin = payload;
