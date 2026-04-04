@@ -108,8 +108,11 @@ async function customerSendMessage(req, res) {
 
     const io = req.app.get('io');
     if (io) {
+      // Emit to agents in the conversation room AND broadcast to all agents
       io.of('/chat-agent').to(`conv:${id}`).emit('new_message', msg);
       io.of('/chat-agent').emit('conversation_updated', { id, lastMessage: msg });
+      // Also broadcast new_message to all agents so they see it without joining
+      io.of('/chat-agent').emit('new_message', msg);
     }
 
     res.status(201).json(msg);

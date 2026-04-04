@@ -94,16 +94,39 @@ export default function Support() {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
+  // Poll conversations as fallback for socket issues
+  useEffect(() => {
+    const interval = setInterval(loadConversations, 5000);
+    return () => clearInterval(interval);
+  }, [loadConversations]);
+
+  // Poll messages for selected conversation
+  useEffect(() => {
+    if (!selectedId) return;
+    const interval = setInterval(async () => {
+      try {
+        const msgs = await fetchChatMessages(selectedId);
+        setMessages(msgs);
+      } catch {}
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [selectedId]);
+
   // Socket.IO
   useEffect(() => {
     const token = getToken();
     if (!token) return;
 
-    const socket = io('/chat-agent', {
+    // Connect to the same origin as the page, or use the API base for dev
+    const socketUrl = window.location.origin;
+    const socket = io(`${socketUrl}/chat-agent`, {
       auth: { token },
       transports: ['websocket', 'polling'],
     });
     socketRef.current = socket;
+
+    socket.on('connect', () => console.log('[Socket] Connected to /chat-agent'));
+    socket.on('connect_error', (err) => console.error('[Socket] Connection error:', err.message));
 
     socket.on('new_conversation', () => loadConversations());
     socket.on('conversation_updated', () => loadConversations());
@@ -171,9 +194,9 @@ export default function Support() {
     if (!text || !selectedId) return;
     setInput('');
     try {
-      await sendAgentMessage(selectedId, { content: text, messageType: 'text' });
-      const msgs = await fetchChatMessages(selectedId);
-      setMessages(msgs);
+      const msg = await sendAgentMessage(selectedId, { content: text, messageType: 'text' });
+      // Add immediately — socket will dedupe via id check
+      setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
       loadConversations();
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -196,8 +219,8 @@ export default function Support() {
         body: formData,
       });
       if (!res.ok) throw new Error('Upload failed');
-      const msgs = await fetchChatMessages(selectedId);
-      setMessages(msgs);
+      const msg = await res.json();
+      setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
       loadConversations();
     } catch (err) {
       console.error('Failed to upload file:', err);
