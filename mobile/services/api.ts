@@ -10,6 +10,13 @@ export function setAuthToken(token: string | null) {
   _token = token;
 }
 
+export function getToken(): string | null {
+  return _token;
+}
+
+// Socket URL is the API URL without the /api suffix
+export const SOCKET_URL = API_URL.replace(/\/api$/, '');
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

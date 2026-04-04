@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, FontSize, FontWeight, Spacing, Radius } from '../constants/theme';
 import { ChatConversation, ChatMessage, chatApi } from '../services/api';
+import { useSocket } from '../services/socket';
 
 const CATEGORIES = [
   { value: 'general_inquiry', label: 'General Inquiry', icon: 'help-circle-outline' as const },
@@ -54,8 +55,12 @@ function timeAgo(dateStr: string): string {
 
 type Screen = 'list' | 'new' | 'thread';
 
+// Message status for customer-sent messages
+type MsgStatus = 'sending' | 'sent' | 'read' | 'failed';
+
 export default function SupportChatScreen() {
   const router = useRouter();
+  const { socket, connected } = useSocket();
   const [screen, setScreen] = useState<Screen>('list');
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -65,15 +70,36 @@ export default function SupportChatScreen() {
   const [sending, setSending] = useState(false);
   const [newCategory, setNewCategory] = useState('general_inquiry');
   const [newSubject, setNewSubject] = useState('');
+  const [typing, setTyping] = useState(false);
+  const [showNewMsgPill, setShowNewMsgPill] = useState(false);
+  const [msgStatuses, setMsgStatuses] = useState<Record<string, MsgStatus>>({});
   const flatListRef = useRef<FlatList>(null);
 
-  // Load conversations
+  // Refs to avoid stale closures in socket handlers
+  const selectedConvIdRef = useRef<string | null>(null);
+  const conversationsRef = useRef<ChatConversation[]>([]);
+  const messagesRef = useRef<ChatMessage[]>([]);
+  const isAtBottomRef = useRef(true);
+  const screenRef = useRef<Screen>('list');
+
+  // Typing debounce refs
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
+  const typingIndicatorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep refs in sync
+  useEffect(() => { selectedConvIdRef.current = selectedConvId; }, [selectedConvId]);
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { screenRef.current = screen; }, [screen]);
+
+  // ── Load conversations ──
   const loadConversations = useCallback(async () => {
     try {
       const data = await chatApi.getConversations();
       setConversations(data);
     } catch (err: any) {
-      Alert.alert('Load Error', err.message || 'Failed to load conversations');
+      console.error('Failed to load conversations:', err.message);
     } finally {
       setLoading(false);
     }
@@ -93,23 +119,237 @@ export default function SupportChatScreen() {
     }
   }, []);
 
+  // ── Socket.IO event handlers ──
+  useEffect(() => {
+    if (!socket) return;
+
+    // Join rooms for all conversations on connect
+    const joinAllRooms = () => {
+      const convs = conversationsRef.current;
+      convs.forEach(c => socket.emit('join_conversation', c.id));
+    };
+
+    // Join rooms when conversations load or socket connects
+    if (socket.connected) {
+      joinAllRooms();
+    }
+    socket.on('connect', joinAllRooms);
+
+    // ── New message from agent ──
+    const handleNewMessage = (msg: ChatMessage) => {
+      const convId = msg.conversation_id;
+      const currentConvId = selectedConvIdRef.current;
+      const currentScreen = screenRef.current;
+
+      // Update conversation list inline
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === convId);
+        if (idx === -1) return prev;
+
+        const conv = { ...prev[idx] };
+        conv.last_message_preview = msg.content || msg.file_name || 'Attachment';
+        conv.last_message_at = msg.created_at;
+
+        // Only increment unread if not actively viewing this conversation
+        if (!(currentScreen === 'thread' && convId === currentConvId) && msg.sender_type === 'agent') {
+          conv.unread_count_customer = (conv.unread_count_customer || 0) + 1;
+        }
+
+        const next = [...prev];
+        next.splice(idx, 1);
+        return [conv, ...next];
+      });
+
+      // If this message belongs to the active chat thread, append it
+      if (currentScreen === 'thread' && convId === currentConvId) {
+        setMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+
+        // Clear typing indicator
+        setTyping(false);
+        if (typingIndicatorTimeoutRef.current) {
+          clearTimeout(typingIndicatorTimeoutRef.current);
+          typingIndicatorTimeoutRef.current = null;
+        }
+
+        // Mark as read via REST (server marks agent messages as read)
+        chatApi.getMessages(convId, { limit: 1 }).catch(() => {});
+      }
+    };
+
+    // ── Conversation updated (status change, etc.) ──
+    const handleConversationUpdated = (updated: Partial<ChatConversation> & { id: string }) => {
+      setConversations(prev =>
+        prev.map(c => c.id === updated.id ? { ...c, ...updated } : c)
+      );
+    };
+
+    // ── Message read receipt (agent read our message) ──
+    const handleMessageRead = (data: { conversationId: string; messageIds?: string[] }) => {
+      if (data.conversationId === selectedConvIdRef.current) {
+        // Mark all customer messages as read
+        setMsgStatuses(prev => {
+          const next = { ...prev };
+          Object.keys(next).forEach(id => {
+            if (next[id] === 'sent') next[id] = 'read';
+          });
+          return next;
+        });
+      }
+    };
+
+    // ── Typing indicators ──
+    const handleTyping = (data: { conversationId: string; senderType: string }) => {
+      if (data.senderType === 'agent' && data.conversationId === selectedConvIdRef.current) {
+        setTyping(true);
+        // Safety timeout — clear after 5 seconds even if no stop_typing
+        if (typingIndicatorTimeoutRef.current) clearTimeout(typingIndicatorTimeoutRef.current);
+        typingIndicatorTimeoutRef.current = setTimeout(() => setTyping(false), 5000);
+      }
+    };
+
+    const handleStopTyping = (data: { conversationId: string; senderType: string }) => {
+      if (data.senderType === 'agent' && data.conversationId === selectedConvIdRef.current) {
+        setTyping(false);
+        if (typingIndicatorTimeoutRef.current) {
+          clearTimeout(typingIndicatorTimeoutRef.current);
+          typingIndicatorTimeoutRef.current = null;
+        }
+      }
+    };
+
+    // ── Message edited/deleted ──
+    const handleMessageEdited = (msg: ChatMessage) => {
+      setMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
+    };
+
+    const handleMessageDeleted = ({ id }: { id: string }) => {
+      setMessages(prev => prev.map(m =>
+        m.id === id ? { ...m, is_deleted: true, content: 'This message was deleted' } : m
+      ));
+    };
+
+    socket.on('new_message', handleNewMessage);
+    socket.on('conversation_updated', handleConversationUpdated);
+    socket.on('message_read', handleMessageRead);
+    socket.on('typing', handleTyping);
+    socket.on('stop_typing', handleStopTyping);
+    socket.on('message_edited', handleMessageEdited);
+    socket.on('message_deleted', handleMessageDeleted);
+
+    return () => {
+      socket.off('connect', joinAllRooms);
+      socket.off('new_message', handleNewMessage);
+      socket.off('conversation_updated', handleConversationUpdated);
+      socket.off('message_read', handleMessageRead);
+      socket.off('typing', handleTyping);
+      socket.off('stop_typing', handleStopTyping);
+      socket.off('message_edited', handleMessageEdited);
+      socket.off('message_deleted', handleMessageDeleted);
+    };
+  }, [socket]);
+
+  // Join room for newly loaded conversations
+  useEffect(() => {
+    if (!socket?.connected) return;
+    conversations.forEach(c => socket.emit('join_conversation', c.id));
+  }, [socket, conversations]);
+
+  // Fetch missed messages on reconnect
+  useEffect(() => {
+    if (!connected || !selectedConvIdRef.current) return;
+    // Refresh messages for active conversation on reconnect
+    const convId = selectedConvIdRef.current;
+    chatApi.getMessages(convId).then(msgs => {
+      setMessages(prev => {
+        // Merge: keep any temp messages, replace/add real ones
+        const realIds = new Set(msgs.map(m => m.id));
+        const temps = prev.filter(m => m.id.startsWith('temp-') && !realIds.has(m.id));
+        return [...msgs, ...temps];
+      });
+    }).catch(() => {});
+  }, [connected]);
+
+  // ── Open conversation ──
   const openConversation = (convId: string) => {
     setSelectedConvId(convId);
     setScreen('thread');
+    setTyping(false);
+    setShowNewMsgPill(false);
+    setMsgStatuses({});
     loadMessages(convId);
+
+    // Clear unread for this conversation
+    setConversations(prev => prev.map(c =>
+      c.id === convId ? { ...c, unread_count_customer: 0 } : c
+    ));
   };
 
-  // Send message
+  // ── Scroll tracking ──
+  const handleScroll = useCallback((e: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
+    isAtBottomRef.current = distanceFromBottom < 80;
+    if (isAtBottomRef.current) {
+      setShowNewMsgPill(false);
+    }
+  }, []);
+
+  // Auto-scroll or show pill on new messages
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const last = messages[messages.length - 1];
+
+    if (isAtBottomRef.current || last.sender_type === 'customer') {
+      // Scroll to bottom
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
+      setShowNewMsgPill(false);
+    } else if (last.sender_type === 'agent') {
+      setShowNewMsgPill(true);
+    }
+  }, [messages.length]);
+
+  // ── Customer typing emission ──
+  const emitTyping = useCallback(() => {
+    const convId = selectedConvIdRef.current;
+    if (!socket?.connected || !convId) return;
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      socket.emit('typing', { conversationId: convId });
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      if (socket?.connected && convId) {
+        socket.emit('stop_typing', { conversationId: convId });
+      }
+    }, 3000);
+  }, [socket]);
+
+  const stopTyping = useCallback(() => {
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (isTypingRef.current && socket?.connected && selectedConvIdRef.current) {
+      isTypingRef.current = false;
+      socket.emit('stop_typing', { conversationId: selectedConvIdRef.current });
+    }
+  }, [socket]);
+
+  // ── Send message ──
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || sending || !selectedConvId) return;
 
     setInputText('');
+    stopTyping();
     setSending(true);
 
-    // Optimistic add
+    const tempId = `temp-${Date.now()}`;
     const tempMsg: ChatMessage = {
-      id: `temp-${Date.now()}`,
+      id: tempId,
       conversation_id: selectedConvId,
       sender_type: 'customer',
       sender_id: null,
@@ -122,17 +362,55 @@ export default function SupportChatScreen() {
       edited_at: null,
       created_at: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, tempMsg]);
+
+    setMessages(prev => [...prev, tempMsg]);
+    setMsgStatuses(prev => ({ ...prev, [tempId]: 'sending' }));
 
     try {
       const msg = await chatApi.sendMessage(selectedConvId, { content: text });
-      setMessages((prev) => prev.map((m) => (m.id === tempMsg.id ? msg : m)));
+      setMessages(prev => prev.map(m => m.id === tempId ? msg : m));
+      setMsgStatuses(prev => {
+        const next = { ...prev };
+        delete next[tempId];
+        next[msg.id] = 'sent';
+        return next;
+      });
+
+      // Update conversation preview
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === selectedConvId);
+        if (idx === -1) return prev;
+        const conv = { ...prev[idx], last_message_preview: text, last_message_at: msg.created_at };
+        const next = [...prev];
+        next.splice(idx, 1);
+        return [conv, ...next];
+      });
     } catch (err: any) {
-      setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
-      setInputText(text);
+      setMsgStatuses(prev => ({ ...prev, [tempId]: 'failed' }));
       Alert.alert('Send Error', err.message || 'Failed to send message');
     } finally {
       setSending(false);
+    }
+  };
+
+  // Retry failed message
+  const handleRetry = async (tempId: string) => {
+    const msg = messages.find(m => m.id === tempId);
+    if (!msg || !selectedConvId) return;
+
+    setMsgStatuses(prev => ({ ...prev, [tempId]: 'sending' }));
+
+    try {
+      const sent = await chatApi.sendMessage(selectedConvId, { content: msg.content });
+      setMessages(prev => prev.map(m => m.id === tempId ? sent : m));
+      setMsgStatuses(prev => {
+        const next = { ...prev };
+        delete next[tempId];
+        next[sent.id] = 'sent';
+        return next;
+      });
+    } catch (err: any) {
+      setMsgStatuses(prev => ({ ...prev, [tempId]: 'failed' }));
     }
   };
 
@@ -154,6 +432,11 @@ export default function SupportChatScreen() {
       setMessages([result.message]);
       setScreen('thread');
       loadConversations();
+
+      // Join the new conversation room
+      if (socket?.connected) {
+        socket.emit('join_conversation', result.conversation.id);
+      }
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create conversation');
     } finally {
@@ -183,11 +466,40 @@ export default function SupportChatScreen() {
         name: asset.fileName || 'photo.jpg',
         type: asset.mimeType || 'image/jpeg',
       });
-      setMessages((prev) => [...prev, msg]);
+      setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
     } catch (err: any) {
       Alert.alert('Upload Error', err.message || 'Failed to upload image');
     } finally {
       setSending(false);
+    }
+  };
+
+  // Input change with typing emission
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+    if (text.trim()) {
+      emitTyping();
+    } else {
+      stopTyping();
+    }
+  };
+
+  // ── Message status icon ──
+  const renderMsgStatus = (msgId: string) => {
+    const status = msgStatuses[msgId];
+    if (!status) return null;
+
+    switch (status) {
+      case 'sending':
+        return <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.6)" />;
+      case 'sent':
+        return <Ionicons name="checkmark-done-outline" size={12} color="rgba(255,255,255,0.6)" />;
+      case 'read':
+        return <Ionicons name="checkmark-done-outline" size={12} color="#60A5FA" />;
+      case 'failed':
+        return <Ionicons name="alert-circle" size={12} color="#EF4444" />;
+      default:
+        return null;
     }
   };
 
@@ -201,7 +513,9 @@ export default function SupportChatScreen() {
           </Pressable>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle}>Support</Text>
-            <Text style={styles.headerSubtitle}>We typically reply within a few hours</Text>
+            <Text style={styles.headerSubtitle}>
+              {connected ? 'Online' : 'We typically reply within a few hours'}
+            </Text>
           </View>
           <Pressable onPress={loadConversations} style={styles.backBtn}>
             <Ionicons name="refresh" size={22} color={Colors.foregroundMuted} />
@@ -346,13 +660,24 @@ export default function SupportChatScreen() {
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>Support Chat</Text>
           <Text style={styles.headerSubtitle}>
-            {conversations.find(c => c.id === selectedConvId)?.subject || 'Conversation'}
+            {typing ? 'Support is typing...' : conversations.find(c => c.id === selectedConvId)?.subject || 'Conversation'}
           </Text>
         </View>
-        <Pressable onPress={() => selectedConvId && loadMessages(selectedConvId)} style={styles.backBtn}>
-          <Ionicons name="refresh" size={22} color={Colors.foregroundMuted} />
-        </Pressable>
+        {!connected && (
+          <View style={styles.offlineIndicator}>
+            <Ionicons name="cloud-offline-outline" size={16} color={Colors.amber} />
+          </View>
+        )}
       </View>
+
+      {/* Reconnection banner */}
+      {!connected && (
+        <View style={styles.reconnectBanner}>
+          <Ionicons name="wifi" size={14} color="#FFF" />
+          <Text style={styles.reconnectText}>Reconnecting...</Text>
+          <ActivityIndicator size="small" color="#FFF" />
+        </View>
+      )}
 
       <KeyboardAvoidingView
         style={styles.chatArea}
@@ -365,7 +690,30 @@ export default function SupportChatScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          onScroll={handleScroll}
+          scrollEventThrottle={100}
+          onContentSizeChange={() => {
+            if (isAtBottomRef.current) {
+              flatListRef.current?.scrollToEnd({ animated: false });
+            }
+          }}
+          ListFooterComponent={
+            typing ? (
+              <View style={styles.typingIndicator}>
+                <View style={styles.supportAvatar}>
+                  <Ionicons name="headset" size={12} color="#FFF" />
+                </View>
+                <View style={styles.typingBubble}>
+                  <View style={styles.typingDots}>
+                    <View style={styles.typingDot} />
+                    <View style={styles.typingDot} />
+                    <View style={styles.typingDot} />
+                  </View>
+                  <Text style={styles.typingText}>Support is typing...</Text>
+                </View>
+              </View>
+            ) : null
+          }
           renderItem={({ item, index }) => {
             const prevMsg = index > 0 ? messages[index - 1] : null;
             const showDate = !prevMsg || formatDate(item.created_at) !== formatDate(prevMsg.created_at);
@@ -387,6 +735,8 @@ export default function SupportChatScreen() {
             }
 
             const isUser = item.sender_type === 'customer';
+            const isFailed = msgStatuses[item.id] === 'failed';
+
             return (
               <>
                 {showDate && (
@@ -394,13 +744,21 @@ export default function SupportChatScreen() {
                     <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
                   </View>
                 )}
-                <View style={[styles.messageBubbleRow, isUser && styles.messageBubbleRowUser]}>
+                <Pressable
+                  style={[styles.messageBubbleRow, isUser && styles.messageBubbleRowUser]}
+                  onPress={isFailed ? () => handleRetry(item.id) : undefined}
+                >
                   {!isUser && (
                     <View style={styles.supportAvatar}>
                       <Ionicons name="headset" size={16} color="#FFF" />
                     </View>
                   )}
-                  <View style={[styles.messageBubble, isUser ? styles.userBubble : styles.supportBubble, item.is_deleted && { opacity: 0.5 }]}>
+                  <View style={[
+                    styles.messageBubble,
+                    isUser ? styles.userBubble : styles.supportBubble,
+                    item.is_deleted && { opacity: 0.5 },
+                    isFailed && { opacity: 0.6 },
+                  ]}>
                     {item.message_type === 'image' && item.file_url && !item.is_deleted && (
                       <Image source={{ uri: item.file_url }} style={styles.msgImage} resizeMode="cover" />
                     )}
@@ -422,13 +780,31 @@ export default function SupportChatScreen() {
                       {item.edited_at && (
                         <Text style={[styles.messageTime, isUser && styles.userMessageTime]}>(edited)</Text>
                       )}
+                      {isUser && renderMsgStatus(item.id)}
+                      {isFailed && (
+                        <Text style={{ fontSize: 10, color: '#EF4444', marginLeft: 4 }}>Tap to retry</Text>
+                      )}
                     </View>
                   </View>
-                </View>
+                </Pressable>
               </>
             );
           }}
         />
+
+        {/* New message pill */}
+        {showNewMsgPill && (
+          <Pressable
+            style={styles.newMsgPill}
+            onPress={() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+              setShowNewMsgPill(false);
+            }}
+          >
+            <Text style={styles.newMsgPillText}>New message</Text>
+            <Ionicons name="arrow-down" size={14} color="#FFF" />
+          </Pressable>
+        )}
 
         <View style={styles.inputBar}>
           <Pressable style={styles.attachBtn} onPress={handlePickImage}>
@@ -439,7 +815,7 @@ export default function SupportChatScreen() {
             placeholder="Type a message..."
             placeholderTextColor={Colors.foregroundMuted}
             value={inputText}
-            onChangeText={setInputText}
+            onChangeText={handleInputChange}
             multiline
             maxLength={2000}
             onSubmitEditing={handleSend}
@@ -542,6 +918,27 @@ const styles = StyleSheet.create({
     color: Colors.foregroundSecondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  // Reconnection banner
+  reconnectBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    backgroundColor: '#F59E0B',
+  },
+  reconnectText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFF',
+  },
+  offlineIndicator: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Conversations list
@@ -763,6 +1160,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 4,
     alignSelf: 'flex-end',
+    alignItems: 'center',
   },
   messageTime: {
     fontSize: 11,
@@ -789,6 +1187,64 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     color: Colors.primary,
   },
+
+  // Typing indicator
+  typingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  typingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.surfaceSecondary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.card,
+    borderBottomLeftRadius: 4,
+  },
+  typingDots: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.foregroundMuted,
+  },
+  typingText: {
+    fontSize: FontSize.caption,
+    color: Colors.foregroundMuted,
+  },
+
+  // New message pill
+  newMsgPill: {
+    position: 'absolute',
+    bottom: 70,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  newMsgPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+
+  // Input bar
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',

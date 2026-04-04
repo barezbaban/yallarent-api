@@ -11,6 +11,7 @@ import { AlertProvider } from '../services/alert';
 import { LanguageProvider } from '../services/language';
 import { queryClient } from '../services/queryClient';
 import { registerForPushNotifications, unregisterPushNotifications } from '../services/notifications';
+import { SocketProvider } from '../services/socket';
 import type { User } from '../services/auth';
 
 SplashScreen.preventAutoHideAsync();
@@ -146,6 +147,7 @@ export default function RootLayout() {
     <LanguageProvider>
     <AlertProvider>
     <AuthContext.Provider value={{ user, token, guestMode, login, signup, verifySignup, logout, updateUser, enterGuestMode }}>
+    <SocketProvider token={token}>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -235,6 +237,7 @@ export default function RootLayout() {
           options={{ animation: 'slide_from_right' }}
         />
       </Stack>
+    </SocketProvider>
     </AuthContext.Provider>
     </AlertProvider>
     </LanguageProvider>
