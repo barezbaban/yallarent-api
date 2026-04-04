@@ -11,7 +11,7 @@ const NAV = [
   { path: '/cars', label: 'Cars', icon: Car, permission: 'cars.view' },
   { path: '/bookings', label: 'Bookings', icon: Calendar, permission: 'bookings.view' },
   { path: '/reviews', label: 'Reviews', icon: Star },
-  { path: '/support', label: 'Support', icon: Headphones, permission: 'support.view' },
+  { path: '/support', label: 'Support', icon: Headphones },
   { path: '/notifications', label: 'Notifications', icon: Bell },
   { path: '/settings', label: 'Settings', icon: Settings, permission: 'settings.view' },
   { path: '/roles', label: 'Roles', icon: Shield, permission: 'roles.view' },
