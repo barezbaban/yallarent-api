@@ -4,3 +4,5 @@ node_modules
 dist
 portal/dist
 *.tsbuildinfo
+uploads/chat/*
+!uploads/chat/.gitkeep

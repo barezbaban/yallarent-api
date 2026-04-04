@@ -17,6 +17,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const portalRoutes = require('./routes/portalRoutes');
 const backofficeRoutes = require('./routes/backofficeRoutes');
+const { customerRouter: chatCustomerRoutes, agentRouter: chatAgentRoutes } = require('./routes/chatRoutes');
 
 const app = express();
 
@@ -73,6 +74,11 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/backoffice', backofficeRoutes);
+app.use('/api/chat', chatCustomerRoutes);
+app.use('/api/agent/chat', chatAgentRoutes);
+
+// Serve uploaded chat files
+app.use('/uploads/chat', express.static(path.join(__dirname, '..', 'uploads', 'chat')));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

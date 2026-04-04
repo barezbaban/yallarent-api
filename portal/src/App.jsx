@@ -7,6 +7,7 @@ import Partners from './pages/Partners';
 import PartnerDetail from './pages/PartnerDetail';
 import Roles from './pages/Roles';
 import BackofficeUsers from './pages/BackofficeUsers';
+import Support from './pages/Support';
 import { ShieldOff } from 'lucide-react';
 
 function ProtectedLayout() {
@@ -55,7 +56,7 @@ export default function App() {
           <Route path="/cars" element={<PlaceholderPage title="Cars" />} />
           <Route path="/bookings" element={<PlaceholderPage title="Bookings" />} />
           <Route path="/reviews" element={<PlaceholderPage title="Reviews" />} />
-          <Route path="/support" element={<PlaceholderPage title="Support" />} />
+          <Route path="/support" element={<Support />} />
           <Route path="/notifications" element={<PlaceholderPage title="Notifications" />} />
           <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
           <Route path="/roles" element={<RequirePermission permission="roles.view"><Roles /></RequirePermission>} />

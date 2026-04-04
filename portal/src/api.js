@@ -1,7 +1,7 @@
 const PORTAL_BASE = '/api/portal';
 const BACKOFFICE_BASE = '/api/backoffice';
 
-function getToken() {
+export function getToken() {
   return localStorage.getItem('portal_token');
 }
 
@@ -177,4 +177,54 @@ export async function updateBackofficeUser(id, data) {
 
 export async function resetBackofficeUserPassword(id) {
   return backofficeRequest(`/users/${id}/reset-password`, { method: 'POST' });
+}
+
+// ── Chat / Support ──
+const AGENT_CHAT_BASE = '/api/agent/chat';
+
+function agentChatRequest(path, options = {}) {
+  return request(path, options, AGENT_CHAT_BASE);
+}
+
+export async function fetchChatConversations(params = {}) {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
+  return agentChatRequest(`/conversations${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchChatConversation(id) {
+  return agentChatRequest(`/conversations/${id}`);
+}
+
+export async function fetchChatMessages(id, params = {}) {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
+  return agentChatRequest(`/conversations/${id}/messages${qs ? `?${qs}` : ''}`);
+}
+
+export async function sendAgentMessage(conversationId, data) {
+  return agentChatRequest(`/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateConversation(id, data) {
+  return agentChatRequest(`/conversations/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchChatNotes(id) {
+  return agentChatRequest(`/conversations/${id}/notes`);
+}
+
+export async function addChatNote(id, data) {
+  return agentChatRequest(`/conversations/${id}/notes`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchCannedResponses() {
+  return agentChatRequest('/canned-responses');
 }

@@ -107,6 +107,62 @@ const sendSupportMessage = z.object({
   message: z.string().min(1, 'Message is required').max(2000),
 });
 
+// Chat system schemas
+const createConversation = z.object({
+  subject: z.string().max(200).optional(),
+  category: z.enum(['booking_issue', 'payment_issue', 'car_problem', 'account_issue', 'general_inquiry', 'complaint', 'other']).optional().default('general_inquiry'),
+  relatedBookingId: uuid.optional(),
+  message: z.string().min(1, 'Message is required').max(2000),
+});
+
+const sendChatMessage = z.object({
+  content: z.string().min(1, 'Message is required').max(2000),
+  messageType: z.enum(['text', 'image', 'file', 'canned_response']).optional().default('text'),
+});
+
+const updateConversationSchema = z.object({
+  status: z.enum(['open', 'waiting_on_customer', 'waiting_on_agent', 'resolved', 'closed']).optional(),
+  priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
+  assignedAgentId: uuid.nullable().optional(),
+  subject: z.string().max(200).optional(),
+});
+
+const chatMessagesQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  before: z.string().optional(),
+});
+
+const conversationListQuery = z.object({
+  status: z.enum(['open', 'waiting_on_customer', 'waiting_on_agent', 'resolved', 'closed']).optional(),
+  priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
+  category: z.enum(['booking_issue', 'payment_issue', 'car_problem', 'account_issue', 'general_inquiry', 'complaint', 'other']).optional(),
+  assignedAgentId: uuid.optional(),
+  unassigned: z.enum(['true', 'false']).optional(),
+  search: z.string().max(100).optional(),
+});
+
+const createCannedResponseSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(100),
+  content: z.string().min(1, 'Content is required').max(2000),
+  category: z.string().max(50).optional().default('General'),
+  shortcut: z.string().min(1, 'Shortcut is required').max(30),
+});
+
+const updateCannedResponseSchema = z.object({
+  title: z.string().min(1).max(100).optional(),
+  content: z.string().min(1).max(2000).optional(),
+  category: z.string().max(50).optional(),
+  shortcut: z.string().min(1).max(30).optional(),
+});
+
+const addChatNote = z.object({
+  content: z.string().min(1, 'Note content is required').max(2000),
+});
+
+const editMessage = z.object({
+  content: z.string().min(1, 'Message is required').max(2000),
+});
+
 // Backoffice schemas
 const backofficeLogin = z.object({
   email: z.string().email('Valid email is required'),
@@ -161,4 +217,13 @@ module.exports = {
   updateRole,
   createBackofficeUser,
   updateBackofficeUser,
+  createConversation,
+  sendChatMessage,
+  updateConversationSchema,
+  chatMessagesQuery,
+  conversationListQuery,
+  createCannedResponseSchema,
+  updateCannedResponseSchema,
+  addChatNote,
+  editMessage,
 };

@@ -265,3 +265,97 @@ export const supportApi = {
       body: JSON.stringify({ message }),
     }),
 };
+
+// ── Chat System ──
+export interface ChatConversation {
+  id: string;
+  customer_id: string;
+  subject: string | null;
+  status: string;
+  priority: string;
+  category: string;
+  unread_count_customer: number;
+  unread_count_agent: number;
+  last_message_at: string;
+  last_message_preview: string;
+  created_at: string;
+  agent_name?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  sender_type: 'customer' | 'agent' | 'system';
+  sender_id: string | null;
+  content: string;
+  message_type: string;
+  file_url: string | null;
+  file_name: string | null;
+  is_read: boolean;
+  is_deleted: boolean;
+  edited_at: string | null;
+  created_at: string;
+}
+
+export const chatApi = {
+  getConversations: () =>
+    request<ChatConversation[]>('/chat/conversations'),
+
+  createConversation: (data: { subject?: string; category?: string; message: string; relatedBookingId?: string }) =>
+    request<{ conversation: ChatConversation; message: ChatMessage }>('/chat/conversations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getMessages: (conversationId: string, params?: { limit?: number; before?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit) qs.set('limit', String(params.limit));
+    if (params?.before) qs.set('before', params.before);
+    const qsStr = qs.toString();
+    return request<ChatMessage[]>(`/chat/conversations/${conversationId}/messages${qsStr ? `?${qsStr}` : ''}`);
+  },
+
+  sendMessage: (conversationId: string, data: { content: string; messageType?: string }) =>
+    request<ChatMessage>(`/chat/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getUnreadCount: () =>
+    request<{ unread: number }>('/chat/unread'),
+
+  editMessage: (messageId: string, content: string) =>
+    request<ChatMessage>(`/chat/messages/${messageId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ content }),
+    }),
+
+  deleteMessage: (messageId: string) =>
+    request<ChatMessage>(`/chat/messages/${messageId}`, {
+      method: 'DELETE',
+    }),
+
+  uploadFile: async (conversationId: string, file: { uri: string; name: string; type: string }) => {
+    const formData = new FormData();
+    formData.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
+    } as any);
+    formData.append('content', '');
+    formData.append('messageType', file.type.startsWith('image/') ? 'image' : 'file');
+
+    const res = await fetch(`${API_URL}/chat/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${_token}`,
+      },
+      body: formData,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'Upload failed');
+    }
+    return res.json() as Promise<ChatMessage>;
+  },
+};
