@@ -77,8 +77,15 @@ app.use('/api/backoffice', backofficeRoutes);
 // Track chat requests for debugging
 let chatRequestLog = [];
 app.use('/api/chat', (req, res, next) => {
-  chatRequestLog.push({ method: req.method, path: req.path, time: new Date().toISOString(), auth: !!req.headers.authorization });
-  if (chatRequestLog.length > 20) chatRequestLog = chatRequestLog.slice(-20);
+  const entry = { method: req.method, path: req.path, time: new Date().toISOString(), auth: !!req.headers.authorization };
+  const origJson = res.json.bind(res);
+  res.json = function(body) {
+    entry.status = res.statusCode;
+    entry.response = typeof body === 'object' ? JSON.stringify(body).substring(0, 300) : String(body).substring(0, 300);
+    chatRequestLog.push(entry);
+    if (chatRequestLog.length > 20) chatRequestLog = chatRequestLog.slice(-20);
+    return origJson(body);
+  };
   next();
 });
 
