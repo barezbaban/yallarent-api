@@ -5,7 +5,7 @@ function getToken() {
   return localStorage.getItem('portal_token');
 }
 
-async function request(path, options = {}, base = PORTAL_BASE) {
+async function request(path, options = {}, base = PORTAL_BASE, { skipAuthRedirect = false } = {}) {
   const token = getToken();
   const res = await fetch(`${base}${path}`, {
     ...options,
@@ -16,7 +16,7 @@ async function request(path, options = {}, base = PORTAL_BASE) {
     },
   });
 
-  if (res.status === 401) {
+  if (res.status === 401 && !skipAuthRedirect) {
     localStorage.removeItem('portal_token');
     localStorage.removeItem('portal_admin');
     localStorage.removeItem('portal_permissions');
@@ -35,10 +35,10 @@ function backofficeRequest(path, options = {}) {
 
 // ── Auth ──
 export async function login(email, password) {
-  const data = await backofficeRequest('/auth/login', {
+  const data = await request('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
-  });
+  }, BACKOFFICE_BASE, { skipAuthRedirect: true });
   localStorage.setItem('portal_token', data.token);
   localStorage.setItem('portal_admin', JSON.stringify(data.user));
   localStorage.setItem('portal_permissions', JSON.stringify(data.user.permissions || {}));
