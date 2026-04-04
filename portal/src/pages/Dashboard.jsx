@@ -177,9 +177,7 @@ export default function Dashboard() {
                 <div className="user-list-name">{u.full_name}</div>
                 <div className="user-list-meta">{u.city || 'No city'} &middot; {timeSince(u.created_at)}</div>
               </div>
-              <span className={`pill ${u.is_verified ? 'green' : 'amber'}`}>
-                {u.is_verified ? 'Verified' : 'Pending'}
-              </span>
+              <span className="pill green">Active</span>
             </div>
           ))}
         </div>

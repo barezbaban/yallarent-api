@@ -46,7 +46,7 @@ async function recentBookings(limit = 5) {
 
 async function recentUsers(limit = 5) {
   const { rows } = await pool.query(
-    `SELECT id, full_name, phone, email, city, is_verified, created_at
+    `SELECT id, full_name, phone, city, created_at
      FROM users
      ORDER BY created_at DESC
      LIMIT $1`,
