@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -15,6 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -97,12 +99,16 @@ export default function SupportChatScreen() {
   // Close chat
   const [showCloseSheet, setShowCloseSheet] = useState(false);
 
-  // Rating
+  // Rating modal
+  const [showRatingModal, setShowRatingModal] = useState(false);
   const [rating, setRating] = useState(0);
   const [feedbackText, setFeedbackText] = useState('');
   const [submittedRating, setSubmittedRating] = useState<ChatRating | null>(null);
-  const [ratingSkipped, setRatingSkipped] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [ratingSuccess, setRatingSuccess] = useState(false);
+  const starScales = useRef([1, 2, 3, 4, 5].map(() => new Animated.Value(1))).current;
+  const feedbackOpacity = useRef(new Animated.Value(0)).current;
+  const successOpacity = useRef(new Animated.Value(0)).current;
 
   // Refs to avoid stale closures
   const selectedConvIdRef = useRef<string | null>(null);
@@ -192,6 +198,17 @@ export default function SupportChatScreen() {
 
     const handleConversationUpdated = (updated: Partial<ChatConversation> & { id: string }) => {
       setConversations(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+      // If agent closed the conversation we're viewing, show rating modal after 1s
+      if (updated.status === 'closed' && updated.id === selectedConvIdRef.current && screenRef.current === 'thread') {
+        setTimeout(() => {
+          setRating(0);
+          setFeedbackText('');
+          setRatingSuccess(false);
+          feedbackOpacity.setValue(0);
+          successOpacity.setValue(0);
+          setShowRatingModal(true);
+        }, 1000);
+      }
     };
 
     const handleTyping = (data: { conversationId: string; senderType: string }) => {
@@ -259,14 +276,28 @@ export default function SupportChatScreen() {
     setRating(0);
     setFeedbackText('');
     setSubmittedRating(null);
-    setRatingSkipped(false);
+    setShowRatingModal(false);
+    setRatingSuccess(false);
+    feedbackOpacity.setValue(0);
+    successOpacity.setValue(0);
     loadMessages(convId);
 
     setConversations(prev => prev.map(c => c.id === convId ? { ...c, unread_count_customer: 0 } : c));
 
     // Check if already rated
     const existingRating = await chatApi.getRating(convId);
-    if (existingRating) setSubmittedRating(existingRating);
+    if (existingRating) {
+      setSubmittedRating(existingRating);
+    } else {
+      // Show rating modal for unrated closed conversations (if not permanently dismissed)
+      const conv = conversationsRef.current.find(c => c.id === convId);
+      if (conv?.status === 'closed') {
+        const dismissed = await AsyncStorage.getItem(`rating_dismissed_${convId}`);
+        if (dismissed !== 'true') {
+          setTimeout(() => setShowRatingModal(true), 800);
+        }
+      }
+    }
   };
 
   // ── Scroll ──
@@ -452,8 +483,16 @@ export default function SupportChatScreen() {
     try {
       const updated = await chatApi.closeConversation(selectedConvId);
       setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, ...updated } : c));
-      // Reload messages to get the system message
       await loadMessages(selectedConvId);
+      // Show rating modal after a short delay
+      setTimeout(() => {
+        setRating(0);
+        setFeedbackText('');
+        setRatingSuccess(false);
+        feedbackOpacity.setValue(0);
+        successOpacity.setValue(0);
+        setShowRatingModal(true);
+      }, 500);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to close conversation');
     }
@@ -472,7 +511,6 @@ export default function SupportChatScreen() {
       setMessages([result.message]);
       setScreen('thread');
       setSubmittedRating(null);
-      setRatingSkipped(false);
       loadConversations();
       if (socket?.connected) socket.emit('join_conversation', result.conversation.id);
     } catch (err: any) {
@@ -483,16 +521,43 @@ export default function SupportChatScreen() {
   };
 
   // ── Rating ──
+  const handleStarPress = (star: number) => {
+    setRating(star);
+    // Animate the tapped star
+    Animated.sequence([
+      Animated.timing(starScales[star - 1], { toValue: 1.2, duration: 100, useNativeDriver: true }),
+      Animated.timing(starScales[star - 1], { toValue: 1, duration: 100, useNativeDriver: true }),
+    ]).start();
+    // Animate feedback input appearance
+    Animated.timing(feedbackOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+  };
+
   const handleSubmitRating = async () => {
     if (!selectedConvId || rating === 0) return;
     setSubmittingRating(true);
     try {
       const saved = await chatApi.submitRating(selectedConvId, { rating, feedbackText: feedbackText.trim() || undefined });
       setSubmittedRating(saved);
+      setRatingSuccess(true);
+      Animated.timing(successOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      // Auto-dismiss after 2 seconds
+      setTimeout(() => setShowRatingModal(false), 2000);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to submit rating');
     } finally {
       setSubmittingRating(false);
+    }
+  };
+
+  const handleRatingDismiss = async () => {
+    setShowRatingModal(false);
+    if (!selectedConvId) return;
+    // Track dismiss count — after 2 dismissals, permanently dismiss
+    const key = `rating_dismiss_count_${selectedConvId}`;
+    const count = parseInt(await AsyncStorage.getItem(key) || '0', 10);
+    await AsyncStorage.setItem(key, String(count + 1));
+    if (count + 1 >= 2) {
+      await AsyncStorage.setItem(`rating_dismissed_${selectedConvId}`, 'true');
     }
   };
 
@@ -512,10 +577,9 @@ export default function SupportChatScreen() {
     return null;
   };
 
-  // ── Rating placeholder text ──
-  const ratingPlaceholder = rating <= 2 ? "We're sorry to hear that. What went wrong?"
+  const ratingPlaceholder = rating <= 2 ? "We're sorry. What went wrong?"
     : rating === 3 ? 'How could we improve?'
-    : 'Anything you\'d like to share?';
+    : 'What did you like?';
 
   // ══════════════════════════════════════════
   // CONVERSATIONS LIST
@@ -622,64 +686,6 @@ export default function SupportChatScreen() {
   // CHAT THREAD
   // ══════════════════════════════════════════
 
-  const renderRatingCard = () => {
-    // Already rated — show read-only
-    if (submittedRating) {
-      const thankMsg = submittedRating.rating >= 4
-        ? "Thank you for your feedback! We're glad we could help."
-        : "Thank you for your feedback. We'll work on doing better.";
-      return (
-        <View style={styles.ratingCard}>
-          <Text style={styles.ratingThankYou}>{thankMsg}</Text>
-          <View style={styles.ratingStarsRow}>
-            {[1, 2, 3, 4, 5].map(i => (
-              <Ionicons key={i} name={i <= submittedRating.rating ? 'star' : 'star-outline'} size={24} color={i <= submittedRating.rating ? '#F59E0B' : Colors.border} />
-            ))}
-          </View>
-        </View>
-      );
-    }
-
-    // Skipped
-    if (ratingSkipped) return null;
-
-    // Not closed — no rating card
-    if (!isClosed) return null;
-
-    return (
-      <View style={styles.ratingCard}>
-        <Text style={styles.ratingTitle}>How was your experience?</Text>
-        <View style={styles.ratingStarsRow}>
-          {[1, 2, 3, 4, 5].map(i => (
-            <Pressable key={i} onPress={() => setRating(i)} hitSlop={8}>
-              <Ionicons name={i <= rating ? 'star' : 'star-outline'} size={36} color={i <= rating ? '#F59E0B' : Colors.border} />
-            </Pressable>
-          ))}
-        </View>
-        {rating > 0 && (
-          <>
-            <TextInput
-              style={styles.feedbackInput}
-              placeholder={ratingPlaceholder}
-              placeholderTextColor={Colors.foregroundMuted}
-              value={feedbackText}
-              onChangeText={setFeedbackText}
-              multiline
-              maxLength={1000}
-              autoFocus={rating <= 2}
-            />
-            <Pressable style={[styles.submitRatingBtn, submittingRating && { opacity: 0.5 }]} onPress={handleSubmitRating} disabled={submittingRating}>
-              {submittingRating ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.submitRatingText}>Submit</Text>}
-            </Pressable>
-          </>
-        )}
-        <Pressable onPress={() => setRatingSkipped(true)} style={{ marginTop: 8 }}>
-          <Text style={styles.skipText}>Skip</Text>
-        </Pressable>
-      </View>
-    );
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -720,20 +726,17 @@ export default function SupportChatScreen() {
           scrollEventThrottle={100}
           onContentSizeChange={() => { if (isAtBottomRef.current) flatListRef.current?.scrollToEnd({ animated: false }); }}
           ListFooterComponent={
-            <>
-              {typing && (
-                <View style={styles.typingIndicator}>
-                  <View style={styles.supportAvatarSmall}><Ionicons name="headset" size={12} color="#FFF" /></View>
-                  <View style={styles.typingBubble}>
-                    <View style={styles.typingDots}>
-                      <View style={styles.typingDot} /><View style={styles.typingDot} /><View style={styles.typingDot} />
-                    </View>
-                    <Text style={styles.typingText}>Support is typing...</Text>
+            typing ? (
+              <View style={styles.typingIndicator}>
+                <View style={styles.supportAvatarSmall}><Ionicons name="headset" size={12} color="#FFF" /></View>
+                <View style={styles.typingBubble}>
+                  <View style={styles.typingDots}>
+                    <View style={styles.typingDot} /><View style={styles.typingDot} /><View style={styles.typingDot} />
                   </View>
+                  <Text style={styles.typingText}>Support is typing...</Text>
                 </View>
-              )}
-              {renderRatingCard()}
-            </>
+              </View>
+            ) : null
           }
           renderItem={({ item, index }) => {
             const prevMsg = index > 0 ? messages[index - 1] : null;
@@ -809,6 +812,15 @@ export default function SupportChatScreen() {
         {/* Input bar or closed banner */}
         {isClosed ? (
           <View style={styles.closedBanner}>
+            {submittedRating && (
+              <View style={styles.ratedBanner}>
+                <Text style={styles.ratedBannerText}>You rated this conversation</Text>
+                <View style={styles.ratedBannerStars}>
+                  <Ionicons name="star" size={14} color="#F59E0B" />
+                  <Text style={styles.ratedBannerScore}>{submittedRating.rating}/5</Text>
+                </View>
+              </View>
+            )}
             <Text style={styles.closedBannerText}>This conversation has ended. Need more help?</Text>
             <Pressable style={styles.newConvSmallBtn} onPress={() => setScreen('new')}>
               <Text style={styles.newConvSmallBtnText}>Start New Conversation</Text>
@@ -888,6 +900,73 @@ export default function SupportChatScreen() {
               <Text style={{ color: '#FFF', fontSize: 14, fontWeight: '600' }}>Save to Gallery</Text>
             </Pressable>
           )}
+        </View>
+      </Modal>
+
+      {/* ── Rating Modal Overlay ── */}
+      <Modal visible={showRatingModal} transparent animationType="slide" onRequestClose={() => {}}>
+        <View style={styles.ratingOverlay}>
+          <View style={styles.ratingModal}>
+            <View style={styles.ratingModalHandle} />
+            {ratingSuccess ? (
+              <Animated.View style={[styles.ratingSuccessContainer, { opacity: successOpacity }]}>
+                <View style={styles.ratingCheckmark}>
+                  <Ionicons name="checkmark-circle" size={64} color="#16A34A" />
+                </View>
+                <Text style={styles.ratingSuccessText}>
+                  {rating >= 4 ? "Thank you! We're glad we could help." : "Thank you. We'll work on doing better."}
+                </Text>
+              </Animated.View>
+            ) : (
+              <View style={styles.ratingModalContent}>
+                <Text style={styles.ratingModalTitle}>How was your experience?</Text>
+                <Text style={styles.ratingModalSubtitle}>Your feedback helps us improve</Text>
+                <View style={styles.ratingModalStars}>
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <Pressable key={i} onPress={() => handleStarPress(i)} hitSlop={10}>
+                      <Animated.View style={{ transform: [{ scale: starScales[i - 1] }] }}>
+                        <Ionicons
+                          name={i <= rating ? 'star' : 'star-outline'}
+                          size={48}
+                          color={i <= rating ? '#F59E0B' : '#CBD5E1'}
+                        />
+                      </Animated.View>
+                    </Pressable>
+                  ))}
+                </View>
+                {rating > 0 && (
+                  <Animated.View style={[styles.ratingFeedbackWrap, { opacity: feedbackOpacity }]}>
+                    <View style={styles.ratingFeedbackInputWrap}>
+                      <TextInput
+                        style={styles.ratingFeedbackInput}
+                        placeholder={ratingPlaceholder}
+                        placeholderTextColor={Colors.foregroundMuted}
+                        value={feedbackText}
+                        onChangeText={t => setFeedbackText(t.slice(0, 500))}
+                        multiline
+                        maxLength={500}
+                        numberOfLines={3}
+                      />
+                      <Text style={styles.ratingCharCount}>{feedbackText.length} / 500</Text>
+                    </View>
+                    <Pressable
+                      style={[styles.ratingSubmitBtn, submittingRating && { opacity: 0.5 }]}
+                      onPress={handleSubmitRating}
+                      disabled={submittingRating}
+                    >
+                      {submittingRating
+                        ? <ActivityIndicator size="small" color="#FFF" />
+                        : <Text style={styles.ratingSubmitText}>Submit</Text>
+                      }
+                    </Pressable>
+                  </Animated.View>
+                )}
+                <Pressable onPress={handleRatingDismiss} style={styles.ratingNotNowBtn}>
+                  <Text style={styles.ratingNotNowText}>Not Now</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1004,15 +1083,31 @@ const styles = StyleSheet.create({
   closeCancelBtn: { borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.button, paddingVertical: Spacing.md, alignItems: 'center' },
   closeCancelBtnText: { color: Colors.foreground, fontSize: FontSize.button, fontWeight: FontWeight.semibold },
 
-  // Rating card
-  ratingCard: { margin: Spacing.lg, padding: Spacing.lg, backgroundColor: Colors.surfaceSecondary, borderRadius: Radius.card, alignItems: 'center' },
-  ratingTitle: { fontSize: FontSize.sectionHeader, fontWeight: FontWeight.semibold, color: Colors.foreground, marginBottom: Spacing.md },
-  ratingStarsRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.sm },
-  ratingThankYou: { fontSize: FontSize.body, color: Colors.foregroundSecondary, textAlign: 'center', marginBottom: Spacing.sm },
-  feedbackInput: { width: '100%', backgroundColor: Colors.surfacePrimary, borderRadius: Radius.button, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, fontSize: FontSize.body, color: Colors.foreground, borderWidth: 1, borderColor: Colors.border, minHeight: 60, textAlignVertical: 'top', marginTop: Spacing.sm },
-  submitRatingBtn: { marginTop: Spacing.md, backgroundColor: Colors.primary, borderRadius: Radius.button, paddingVertical: Spacing.md, paddingHorizontal: Spacing['3xl'], alignItems: 'center' },
-  submitRatingText: { color: '#FFF', fontSize: FontSize.button, fontWeight: FontWeight.semibold },
-  skipText: { fontSize: FontSize.caption, color: Colors.foregroundMuted },
+  // Rated banner (inline, non-intrusive)
+  ratedBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, backgroundColor: '#FFFBEB', borderRadius: Radius.tag, marginBottom: Spacing.sm },
+  ratedBannerText: { fontSize: FontSize.caption, color: '#92400E' },
+  ratedBannerStars: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratedBannerScore: { fontSize: FontSize.caption, fontWeight: FontWeight.semibold, color: '#92400E' },
+
+  // Rating modal overlay
+  ratingOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  ratingModal: { backgroundColor: Colors.surfacePrimary, borderTopLeftRadius: 24, borderTopRightRadius: 24, minHeight: '60%', paddingBottom: 40 },
+  ratingModalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border, alignSelf: 'center', marginTop: 12, marginBottom: Spacing.xl },
+  ratingModalContent: { alignItems: 'center', paddingHorizontal: Spacing['3xl'] },
+  ratingModalTitle: { fontSize: 22, fontWeight: FontWeight.bold, color: Colors.foreground, textAlign: 'center', marginBottom: Spacing.sm },
+  ratingModalSubtitle: { fontSize: FontSize.body, color: Colors.foregroundMuted, textAlign: 'center', marginBottom: Spacing['3xl'] },
+  ratingModalStars: { flexDirection: 'row', gap: 16, marginBottom: Spacing.xl },
+  ratingFeedbackWrap: { width: '100%', alignItems: 'center' },
+  ratingFeedbackInputWrap: { width: '100%', marginBottom: Spacing.lg },
+  ratingFeedbackInput: { width: '100%', backgroundColor: Colors.surfaceSecondary, borderRadius: Radius.card, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, fontSize: FontSize.body, color: Colors.foreground, borderWidth: 1, borderColor: Colors.border, minHeight: 80, maxHeight: 120, textAlignVertical: 'top' },
+  ratingCharCount: { fontSize: 11, color: Colors.foregroundMuted, textAlign: 'right', marginTop: 4 },
+  ratingSubmitBtn: { width: '100%', backgroundColor: Colors.primary, borderRadius: Radius.button, paddingVertical: 14, alignItems: 'center' },
+  ratingSubmitText: { color: '#FFF', fontSize: FontSize.button, fontWeight: FontWeight.semibold },
+  ratingNotNowBtn: { marginTop: Spacing.lg, paddingVertical: Spacing.sm },
+  ratingNotNowText: { fontSize: FontSize.body, color: Colors.foregroundMuted },
+  ratingSuccessContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: Spacing['3xl'] },
+  ratingCheckmark: { marginBottom: Spacing.xl },
+  ratingSuccessText: { fontSize: FontSize.body, color: Colors.foregroundSecondary, textAlign: 'center', lineHeight: 22 },
 
   // Image viewer
   imageViewerBg: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },

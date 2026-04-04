@@ -502,7 +502,15 @@ async function customerSubmitRating(req, res) {
 
     const io = req.app.get('io');
     if (io) {
-      io.of('/chat-agent').emit('conversation_rated', { conversationId: id, rating: saved });
+      const ratingPayload = {
+        conversation_id: id,
+        rating: saved.rating,
+        feedback_text: saved.feedback_text,
+        customer_name: conv.customer_name,
+        rated_at: saved.created_at,
+      };
+      io.of('/chat-agent').emit('conversation_rated', ratingPayload);
+      io.of('/chat-customer').to(`conv:${id}`).emit('conversation_rated', ratingPayload);
     }
 
     res.status(201).json(saved);

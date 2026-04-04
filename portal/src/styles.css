@@ -1370,12 +1370,16 @@ tbody td.muted { color: var(--text-secondary); }
   font-weight: 600;
   color: var(--text);
 }
-.support-rating-feedback {
+.support-rating-feedback-card {
   font-size: 13px;
   color: var(--text-secondary);
   font-style: italic;
-  margin-top: 8px;
-  line-height: 1.4;
+  margin-top: 10px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-left: 3px solid var(--amber);
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 /* Rating indicator on conversation list item */

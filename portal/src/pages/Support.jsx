@@ -263,9 +263,37 @@ export default function Support() {
 
     // ── Customer rated a conversation ──
     socket.on('conversation_rated', (data) => {
-      if (data.conversationId === selectedIdRef.current) {
-        setRating(data.rating);
+      const convId = data.conversation_id;
+
+      // Update conversation list with rating badge
+      setConversations(prev => prev.map(c =>
+        c.id === convId ? { ...c, rating: data.rating } : c
+      ));
+
+      // If this conversation is currently open, update the sidebar rating
+      if (convId === selectedIdRef.current) {
+        setRating({
+          rating: data.rating,
+          feedback_text: data.feedback_text,
+          created_at: data.rated_at,
+        });
+        // Insert a visual-only "rated" indicator as a system-style message in the UI
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `rating-indicator-${Date.now()}`,
+            conversation_id: convId,
+            sender_type: 'system',
+            content: `Customer rated this conversation ${'⭐'.repeat(data.rating)}`,
+            created_at: data.rated_at,
+            message_type: 'system_event',
+            is_deleted: false,
+          },
+        ]);
       }
+
+      // Toast for agents
+      showToast(`${data.customer_name || 'Customer'} rated a conversation ⭐ ${data.rating}/5`);
     });
 
     // ── Customer closed conversation ──
@@ -825,7 +853,7 @@ export default function Support() {
 
             {rating && (
               <div className="support-context-section">
-                <h3 className="support-context-title">Customer Rating</h3>
+                <h3 className="support-context-title">Customer Feedback</h3>
                 <div className="support-rating-display">
                   <div className="support-rating-stars">
                     {[1, 2, 3, 4, 5].map(s => (
@@ -834,9 +862,9 @@ export default function Support() {
                     <span className="support-rating-number">{rating.rating}/5</span>
                   </div>
                   {rating.feedback_text && (
-                    <div className="support-rating-feedback">"{rating.feedback_text}"</div>
+                    <div className="support-rating-feedback-card">{rating.feedback_text}</div>
                   )}
-                  <div className="support-context-meta" style={{ marginTop: 4 }}>{formatDate(rating.created_at)}</div>
+                  <div className="support-context-meta" style={{ marginTop: 6 }}>{timeAgo(rating.created_at)}</div>
                 </div>
               </div>
             )}
