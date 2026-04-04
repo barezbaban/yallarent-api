@@ -13,30 +13,53 @@ UPDATE backoffice_users
 SET username = LOWER(REPLACE(full_name, ' ', '.'))
 WHERE username IS NULL;
 
--- Mark existing users as not needing password change (they already have working passwords)
+-- Mark existing users as not needing password change
 UPDATE backoffice_users SET must_change_password = FALSE WHERE must_change_password IS NULL;
 
 -- New users default to must_change_password = TRUE
 ALTER TABLE backoffice_users ALTER COLUMN must_change_password SET DEFAULT TRUE;
 
--- Add unique constraint on username
+-- Add unique constraint on username (partial - only non-null)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_backoffice_users_username ON backoffice_users(username) WHERE username IS NOT NULL;
 
--- Keep email unique where it's not null
-DROP INDEX IF EXISTS backoffice_users_email_key;
+-- Drop existing email unique constraint (name varies by DB)
+DO $$
+BEGIN
+  -- Try dropping by common constraint names
+  EXECUTE (
+    SELECT 'ALTER TABLE backoffice_users DROP CONSTRAINT ' || conname
+    FROM pg_constraint
+    WHERE conrelid = 'backoffice_users'::regclass
+      AND contype = 'u'
+      AND EXISTS (
+        SELECT 1 FROM unnest(conkey) k
+        JOIN pg_attribute a ON a.attrelid = conrelid AND a.attnum = k
+        WHERE a.attname = 'email'
+      )
+    LIMIT 1
+  );
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- Re-add email unique as partial index (only where email is not null)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_backoffice_users_email ON backoffice_users(email) WHERE email IS NOT NULL;
 
--- Copy admin from admins table to backoffice_users if not already there
-INSERT INTO backoffice_users (full_name, username, email, password_hash, role_id, must_change_password, is_active)
-SELECT
-  a.full_name,
-  LOWER(REPLACE(a.full_name, ' ', '.')),
-  a.email,
-  a.password_hash,
-  (SELECT id FROM roles WHERE name = 'Super Admin' LIMIT 1),
-  FALSE,
-  a.is_active
-FROM admins a
-WHERE a.email NOT IN (SELECT email FROM backoffice_users WHERE email IS NOT NULL)
-  AND EXISTS (SELECT 1 FROM roles WHERE name = 'Super Admin')
-ON CONFLICT DO NOTHING;
+-- Copy admin from admins table to backoffice_users if admins table exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'admins') THEN
+    INSERT INTO backoffice_users (full_name, username, email, password_hash, role_id, must_change_password, is_active)
+    SELECT
+      a.full_name,
+      LOWER(REPLACE(a.full_name, ' ', '.')),
+      a.email,
+      a.password_hash,
+      (SELECT id FROM roles WHERE name = 'Super Admin' LIMIT 1),
+      FALSE,
+      a.is_active
+    FROM admins a
+    WHERE NOT EXISTS (SELECT 1 FROM backoffice_users bu WHERE bu.email = a.email)
+      AND EXISTS (SELECT 1 FROM roles WHERE name = 'Super Admin')
+    ON CONFLICT DO NOTHING;
+  END IF;
+END $$;
