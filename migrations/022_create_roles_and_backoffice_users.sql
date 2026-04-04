@@ -42,17 +42,22 @@ INSERT INTO roles (name, description, permissions) VALUES (
   }'::jsonb
 ) ON CONFLICT (name) DO NOTHING;
 
--- Migrate existing superadmin from admins table to backoffice_users
-INSERT INTO backoffice_users (full_name, email, password_hash, role_id)
-SELECT
-  a.full_name,
-  a.email,
-  a.password_hash,
-  r.id
-FROM admins a
-CROSS JOIN roles r
-WHERE a.email = 'admin@yallarent.com'
-  AND r.name = 'Super Admin'
-  AND NOT EXISTS (
-    SELECT 1 FROM backoffice_users bu WHERE bu.email = a.email
-  );
+-- Migrate existing superadmin from admins table (if it exists) to backoffice_users
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'admins') THEN
+    INSERT INTO backoffice_users (full_name, email, password_hash, role_id)
+    SELECT
+      a.full_name,
+      a.email,
+      a.password_hash,
+      r.id
+    FROM admins a
+    CROSS JOIN roles r
+    WHERE a.email = 'admin@yallarent.com'
+      AND r.name = 'Super Admin'
+      AND NOT EXISTS (
+        SELECT 1 FROM backoffice_users bu WHERE bu.email = a.email
+      );
+  END IF;
+END $$;

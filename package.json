@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "build": "cd portal && npm install && npm run build",
-    "postinstall": "npm run build",
+    "postinstall": "if [ -d portal ]; then cd portal && npm install && npm run build; fi",
     "test": "jest --forceExit --detectOpenHandles"
   },
   "keywords": [],
