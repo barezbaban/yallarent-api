@@ -38,7 +38,13 @@ async function customerCreateConversation(req, res) {
     // Emit via Socket.IO if available
     const io = req.app.get('io');
     if (io) {
-      io.of('/chat-agent').emit('new_conversation', { ...conversation, lastMessage: msg });
+      io.of('/chat-agent').emit('new_conversation', {
+        ...conversation,
+        customer_name: req.user.name || req.user.full_name || 'Customer',
+        last_message_preview: message,
+        last_message_at: msg.created_at,
+        unread_count_agent: 1,
+      });
     }
 
     res.status(201).json({ conversation, message: msg });

@@ -8,7 +8,7 @@ import {
 import {
   Search, Send, Paperclip, MoreVertical, Clock, User, Car, Calendar,
   ChevronDown, MessageSquare, AlertCircle, X, StickyNote, Hash,
-  Circle, CheckCircle2, ArrowUpCircle, Loader2, Trash2, Edit3,
+  Circle, CheckCircle2, ArrowUpCircle, Loader2, Trash2, Edit3, WifiOff,
 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
@@ -72,10 +72,48 @@ export default function Support() {
   const [statusFilter, setStatusFilter] = useState('');
   const [typing, setTyping] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [showNewMsgPill, setShowNewMsgPill] = useState(false);
+  const [toast, setToast] = useState(null);
+
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const socketRef = useRef(null);
+
+  // Refs to avoid stale closures in socket handlers
+  const selectedIdRef = useRef(selectedId);
+  const conversationsRef = useRef(conversations);
+  const messagesRef = useRef(messages);
+
+  useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // Typing debounce refs
+  const typingTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
+
+  // Toast helper
+  const showToast = useCallback((message, duration = 4000) => {
+    setToast(message);
+    setTimeout(() => setToast(null), duration);
+  }, []);
+
+  // Check if user is scrolled to bottom
+  const isAtBottom = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }, []);
+
+  const scrollToBottom = useCallback((force = false) => {
+    if (force || isAtBottom()) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setShowNewMsgPill(false);
+    }
+  }, [isAtBottom]);
 
   // Load conversations
   const loadConversations = useCallback(async () => {
@@ -94,67 +132,142 @@ export default function Support() {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // Poll conversations as fallback for socket issues
+  // Reduced polling fallback — only when socket is disconnected
   useEffect(() => {
-    const interval = setInterval(loadConversations, 5000);
+    if (socketConnected) return;
+    const interval = setInterval(loadConversations, 10000);
     return () => clearInterval(interval);
-  }, [loadConversations]);
+  }, [loadConversations, socketConnected]);
 
-  // Poll messages for selected conversation
-  useEffect(() => {
-    if (!selectedId) return;
-    const interval = setInterval(async () => {
-      try {
-        const msgs = await fetchChatMessages(selectedId);
-        setMessages(msgs);
-      } catch {}
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [selectedId]);
-
-  // Socket.IO
+  // Socket.IO — single connection, no dependency on loadConversations
   useEffect(() => {
     const token = getToken();
     if (!token) return;
 
-    // Connect to the same origin as the page, or use the API base for dev
     const socketUrl = window.location.origin;
     const socket = io(`${socketUrl}/chat-agent`, {
       auth: { token },
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
     socketRef.current = socket;
 
-    socket.on('connect', () => console.log('[Socket] Connected to /chat-agent'));
-    socket.on('connect_error', (err) => console.error('[Socket] Connection error:', err.message));
-
-    socket.on('new_conversation', () => loadConversations());
-    socket.on('conversation_updated', () => loadConversations());
-    socket.on('new_message', (msg) => {
-      setMessages(prev => {
-        if (prev.some(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-      loadConversations();
+    socket.on('connect', () => {
+      console.log('[Socket] Connected to /chat-agent');
+      setSocketConnected(true);
+      // Re-join the active conversation room on reconnect
+      const currentId = selectedIdRef.current;
+      if (currentId) {
+        socket.emit('join_conversation', currentId);
+      }
     });
+
+    socket.on('disconnect', () => {
+      setSocketConnected(false);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('[Socket] Connection error:', err.message);
+      setSocketConnected(false);
+    });
+
+    // ── New conversation from customer ──
+    socket.on('new_conversation', (conv) => {
+      setConversations(prev => {
+        if (prev.some(c => c.id === conv.id)) return prev;
+        return [conv, ...prev];
+      });
+      showToast(`New conversation from ${conv.customer_name || 'a customer'}`);
+    });
+
+    // ── Conversation metadata updated ──
+    socket.on('conversation_updated', (updated) => {
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === updated.id);
+        if (idx === -1) return prev;
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...updated };
+        return next;
+      });
+      // If this is the selected conversation, update detail too
+      if (updated.id === selectedIdRef.current) {
+        setConvDetail(prev => prev ? { ...prev, ...updated } : prev);
+      }
+    });
+
+    // ── New message ──
+    socket.on('new_message', (msg) => {
+      const currentSelectedId = selectedIdRef.current;
+      const convId = msg.conversation_id;
+
+      // Update conversation list inline: move to top, update preview, bump unread
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === convId);
+        if (idx === -1) return prev; // conversation not in filtered list
+
+        const conv = { ...prev[idx] };
+        conv.last_message_preview = msg.content || msg.file_name || 'Attachment';
+        conv.last_message_at = msg.created_at;
+
+        // Only increment unread if this isn't the conversation we're viewing
+        if (convId !== currentSelectedId && msg.sender_type === 'customer') {
+          conv.unread_count_agent = (conv.unread_count_agent || 0) + 1;
+        }
+
+        const next = [...prev];
+        next.splice(idx, 1);
+        return [conv, ...next];
+      });
+
+      // If the message belongs to the active conversation, append it
+      if (convId === currentSelectedId) {
+        setMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+        // Clear typing indicator for this conversation
+        setTyping(null);
+      }
+    });
+
+    // ── Message edited ──
     socket.on('message_edited', (msg) => {
       setMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
     });
+
+    // ── Message deleted ──
     socket.on('message_deleted', ({ id }) => {
-      setMessages(prev => prev.map(m => m.id === id ? { ...m, is_deleted: true, content: 'This message was deleted' } : m));
+      setMessages(prev => prev.map(m =>
+        m.id === id ? { ...m, is_deleted: true, content: 'This message was deleted' } : m
+      ));
     });
+
+    // ── Typing indicators ──
     socket.on('typing', (data) => {
-      if (data.senderType === 'customer') setTyping(data);
+      if (data.senderType === 'customer' && data.conversationId === selectedIdRef.current) {
+        setTyping(data);
+      }
     });
-    socket.on('stop_typing', () => setTyping(null));
 
-    return () => { socket.disconnect(); };
-  }, [loadConversations]);
+    socket.on('stop_typing', (data) => {
+      if (data.senderType === 'customer' && data.conversationId === selectedIdRef.current) {
+        setTyping(null);
+      }
+    });
 
-  // Join conversation room
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, []); // No deps — single connection for the lifetime of the component
+
+  // Join/leave conversation rooms when selection changes
   useEffect(() => {
     const socket = socketRef.current;
-    if (!socket || !selectedId) return;
+    if (!socket?.connected || !selectedId) return;
     socket.emit('join_conversation', selectedId);
     return () => { socket.emit('leave_conversation', selectedId); };
   }, [selectedId]);
@@ -165,6 +278,8 @@ export default function Support() {
     setMessages([]);
     setShowNotes(false);
     setShowCanned(false);
+    setTyping(null);
+    setShowNewMsgPill(false);
     try {
       const [detail, msgs, notesList, canned] = await Promise.all([
         fetchChatConversation(id),
@@ -177,27 +292,90 @@ export default function Support() {
       setMessages(msgs);
       setNotes(notesList);
       setCannedResponses(canned);
-      loadConversations(); // refresh unread counts
+
+      // Clear unread badge for this conversation
+      setConversations(prev => prev.map(c =>
+        c.id === id ? { ...c, unread_count_agent: 0 } : c
+      ));
     } catch (err) {
       console.error('Failed to load conversation:', err);
     }
   };
 
-  // Scroll to bottom on new messages
+  // Smart auto-scroll: scroll if at bottom, show pill if not
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length === 0) return;
+    if (isAtBottom()) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // Check if the last message is from someone else (not the agent)
+      const last = messages[messages.length - 1];
+      if (last?.sender_type !== 'agent') {
+        setShowNewMsgPill(true);
+      }
+    }
+  }, [messages, isAtBottom]);
+
+  // Auto mark-as-read when conversation is focused and we receive new messages
+  useEffect(() => {
+    if (!selectedId || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last?.sender_type === 'customer' && isAtBottom()) {
+      // Silently mark as read by fetching messages (which triggers server-side markRead)
+      fetchChatMessages(selectedId).catch(() => {});
+    }
+  }, [selectedId, messages.length, isAtBottom]);
+
+  // ── Agent typing emission ──
+  const emitTyping = useCallback(() => {
+    const socket = socketRef.current;
+    const convId = selectedIdRef.current;
+    if (!socket?.connected || !convId) return;
+
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      socket.emit('typing', { conversationId: convId });
+    }
+
+    // Reset the stop-typing timeout
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      socket.emit('stop_typing', { conversationId: convId });
+    }, 3000);
+  }, []);
+
+  const stopTyping = useCallback(() => {
+    const socket = socketRef.current;
+    const convId = selectedIdRef.current;
+    clearTimeout(typingTimeoutRef.current);
+    if (isTypingRef.current && socket?.connected && convId) {
+      isTypingRef.current = false;
+      socket.emit('stop_typing', { conversationId: convId });
+    }
+  }, []);
 
   // Send message
   const handleSend = async () => {
     const text = input.trim();
     if (!text || !selectedId) return;
     setInput('');
+    stopTyping();
     try {
       const msg = await sendAgentMessage(selectedId, { content: text, messageType: 'text' });
-      // Add immediately — socket will dedupe via id check
+      // Optimistic add — socket will dedupe via id check
       setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
-      loadConversations();
+      // Update conversation list preview
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === selectedId);
+        if (idx === -1) return prev;
+        const conv = { ...prev[idx], last_message_preview: text, last_message_at: msg.created_at };
+        const next = [...prev];
+        next.splice(idx, 1);
+        return [conv, ...next];
+      });
+      // Force scroll to bottom after sending
+      setTimeout(() => scrollToBottom(true), 50);
     } catch (err) {
       console.error('Failed to send message:', err);
     }
@@ -221,7 +399,7 @@ export default function Support() {
       if (!res.ok) throw new Error('Upload failed');
       const msg = await res.json();
       setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
-      loadConversations();
+      setTimeout(() => scrollToBottom(true), 50);
     } catch (err) {
       console.error('Failed to upload file:', err);
     }
@@ -248,7 +426,9 @@ export default function Support() {
     try {
       const updated = await updateConversation(selectedId, { [field]: value });
       setConvDetail(updated);
-      loadConversations();
+      setConversations(prev => prev.map(c =>
+        c.id === selectedId ? { ...c, ...updated } : c
+      ));
     } catch (err) {
       console.error('Failed to update conversation:', err);
     }
@@ -261,7 +441,7 @@ export default function Support() {
     inputRef.current?.focus();
   };
 
-  // "/" shortcut detection
+  // "/" shortcut detection + typing emission
   const handleInputChange = (e) => {
     const val = e.target.value;
     setInput(val);
@@ -269,6 +449,12 @@ export default function Support() {
       setShowCanned(true);
     } else if (!val.startsWith('/')) {
       setShowCanned(false);
+    }
+    // Emit typing indicator
+    if (val.trim()) {
+      emitTyping();
+    } else {
+      stopTyping();
     }
   };
 
@@ -297,6 +483,26 @@ export default function Support() {
 
   return (
     <div className="support-layout">
+      {/* ─── Reconnection Banner ─── */}
+      {!socketConnected && (
+        <div className="support-reconnect-banner">
+          <WifiOff size={14} />
+          <span>Reconnecting to live updates...</span>
+          <Loader2 size={14} className="spin" />
+        </div>
+      )}
+
+      {/* ─── Toast Notification ─── */}
+      {toast && (
+        <div className="support-toast">
+          <MessageSquare size={14} />
+          <span>{toast}</span>
+          <button className="icon-btn" onClick={() => setToast(null)} style={{ marginLeft: 8, padding: 2 }}>
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
       {/* ─── Left Panel: Conversation List ─── */}
       <div className="support-list">
         <div className="support-list-header">
@@ -410,7 +616,7 @@ export default function Support() {
               </div>
             ) : (
               <>
-                <div className="support-messages">
+                <div className="support-messages" ref={messagesContainerRef}>
                   {Object.entries(groupedMessages).map(([date, msgs]) => (
                     <div key={date}>
                       <div className="support-date-divider"><span>{date}</span></div>
@@ -455,6 +661,13 @@ export default function Support() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
+
+                {/* New message pill */}
+                {showNewMsgPill && (
+                  <div className="support-new-msg-pill" onClick={() => scrollToBottom(true)}>
+                    <ChevronDown size={14} /> New message
+                  </div>
+                )}
 
                 <div className="support-input-area">
                   {showCanned && (
