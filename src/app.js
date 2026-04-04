@@ -74,6 +74,14 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/backoffice', backofficeRoutes);
+// Track chat requests for debugging
+let chatRequestLog = [];
+app.use('/api/chat', (req, res, next) => {
+  chatRequestLog.push({ method: req.method, path: req.path, time: new Date().toISOString(), auth: !!req.headers.authorization });
+  if (chatRequestLog.length > 20) chatRequestLog = chatRequestLog.slice(-20);
+  next();
+});
+
 app.use('/api/chat', chatCustomerRoutes);
 app.use('/api/agent/chat', chatAgentRoutes);
 
@@ -81,7 +89,7 @@ app.use('/api/agent/chat', chatAgentRoutes);
 app.use('/uploads/chat', express.static(path.join(__dirname, '..', 'uploads', 'chat')));
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: 'chat-v2' });
+  res.json({ status: 'ok', version: 'chat-v3', chatRequests: chatRequestLog });
 });
 
 // Serve backoffice portal static files

@@ -8,6 +8,12 @@ const { chatUpload } = require('../middleware/upload');
 
 // ── Customer routes ──
 const customerRouter = Router();
+
+// Debug ping - no auth required
+customerRouter.get('/ping', (req, res) => {
+  res.json({ ok: true, route: 'chat-customer', time: new Date().toISOString() });
+});
+
 customerRouter.use(authenticate);
 
 customerRouter.use((req, res, next) => { console.log('[Chat Route]', req.method, req.path, 'user:', req.user?.id); next(); });
