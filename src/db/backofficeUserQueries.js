@@ -14,7 +14,7 @@ async function findAll() {
 
 async function findById(id) {
   const { rows } = await pool.query(`
-    SELECT bu.id, bu.full_name, bu.username, bu.email, bu.is_active, bu.must_change_password,
+    SELECT bu.id, bu.full_name, bu.username, bu.email, bu.password_hash, bu.is_active, bu.must_change_password,
            bu.last_login, bu.created_at, bu.updated_at,
            bu.role_id, r.name AS role_name, r.permissions
     FROM backoffice_users bu
