@@ -1,16 +1,7 @@
 const pool = require('../src/config/db');
 
 async function resetDatabase() {
-  await pool.query('DELETE FROM support_messages');
-  await pool.query('DELETE FROM notifications');
-  await pool.query('DELETE FROM reviews');
-  await pool.query('DELETE FROM favorites');
-  await pool.query('DELETE FROM bookings');
-  await pool.query('DELETE FROM car_images');
-  await pool.query('DELETE FROM user_devices');
-  await pool.query('DELETE FROM cars');
-  await pool.query('DELETE FROM users');
-  await pool.query('DELETE FROM companies');
+  await pool.query('TRUNCATE companies, users, cars, bookings, favorites, reviews, notifications, car_images, user_devices, support_messages RESTART IDENTITY CASCADE');
 
   // Re-seed with one company and one car
   await pool.query(`
