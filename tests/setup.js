@@ -1,7 +1,18 @@
 const pool = require('../src/config/db');
 
 async function resetDatabase() {
-  await pool.query('TRUNCATE companies, users, cars, bookings, favorites, reviews, notifications, car_images, user_devices, support_messages RESTART IDENTITY CASCADE');
+  // Truncate all known tables; use DO block to skip missing ones gracefully
+  await pool.query(`
+    DO $$ BEGIN
+      EXECUTE (
+        SELECT 'TRUNCATE ' || string_agg(quote_ident(tablename), ', ') || ' RESTART IDENTITY CASCADE'
+        FROM pg_tables
+        WHERE schemaname = 'public'
+          AND tablename NOT IN ('_migrations')
+          AND tablename NOT LIKE 'pg_%'
+      );
+    END $$;
+  `);
 
   // Re-seed with one company and one car
   await pool.query(`
