@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 
 const API_URL =
   Constants.expoConfig?.extra?.apiUrl ||
-  'https://strong-recreation-dev.up.railway.app/api';
+  'https://yallarent-api-dev.up.railway.app/api';
 
 let _token: string | null = null;
 
