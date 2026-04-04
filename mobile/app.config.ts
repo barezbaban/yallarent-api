@@ -49,6 +49,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           sounds: [],
         },
       ],
+      [
+        'expo-image-picker',
+        {
+          photosPermission: 'Allow YallaRent to access your photos to send in chat.',
+        },
+      ],
       '@react-native-community/datetimepicker',
     ],
     splash: {

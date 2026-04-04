@@ -164,6 +164,11 @@ export default function SupportChatScreen() {
   // Image picker
   const handlePickImage = async () => {
     if (!selectedConvId) return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow photo access to send images.');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.7,
