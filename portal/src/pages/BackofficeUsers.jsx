@@ -21,6 +21,7 @@ export default function BackofficeUsers() {
   const [creds, setCreds] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
   const canCreate = usePermission('users.create');
   const canEdit = usePermission('users.edit');
@@ -69,9 +70,11 @@ export default function BackofficeUsers() {
   }
 
   function closeCredsModal() {
+    if (!confirmed) return;
     setCreds(null);
     setCopied(false);
     setShowPwd(false);
+    setConfirmed(false);
   }
 
   async function handleSubmit(e) {
@@ -205,16 +208,15 @@ export default function BackofficeUsers() {
 
       {/* Credentials modal */}
       {creds && (
-        <div className="modal-overlay" onClick={closeCredsModal}>
+        <div className="modal-overlay">
           <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>User Credentials</h3>
-              <button className="icon-btn" onClick={closeCredsModal}><X size={18} /></button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+              <div style={{ background: 'var(--amber-bg)', color: 'var(--amber)', fontSize: 13, padding: '10px 14px', borderRadius: 'var(--radius)', marginBottom: 16 }}>
                 Save these credentials now. The password cannot be retrieved later.
-              </p>
+              </div>
               <div className="creds-box">
                 <div className="creds-row">
                   <span className="creds-label">Email</span>
@@ -232,11 +234,21 @@ export default function BackofficeUsers() {
                   </div>
                 </div>
               </div>
+              <button className="btn-secondary" style={{ width: '100%', marginTop: 12 }} onClick={copyCredentials}>
+                {copied ? <><Check size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Copied!</> : <><Copy size={14} style={{ marginRight: 6, verticalAlign: -2 }} /> Copy Credentials</>}
+              </button>
+              <label className="creds-confirm">
+                <input
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={e => setConfirmed(e.target.checked)}
+                />
+                <span>I have copied and saved the credentials</span>
+              </label>
             </div>
             <div className="modal-footer">
-              <button className="btn-secondary" onClick={closeCredsModal}>Close</button>
-              <button className="btn-primary" style={{ width: 'auto', padding: '10px 20px' }} onClick={copyCredentials}>
-                {copied ? <><Check size={14} style={{ marginRight: 4, verticalAlign: -2 }} /> Copied!</> : <><Copy size={14} style={{ marginRight: 4, verticalAlign: -2 }} /> Copy Credentials</>}
+              <button className="btn-primary" style={{ width: 'auto', padding: '10px 24px' }} onClick={closeCredsModal} disabled={!confirmed}>
+                Done
               </button>
             </div>
           </div>
