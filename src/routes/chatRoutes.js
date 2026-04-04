@@ -10,6 +10,7 @@ const { chatUpload } = require('../middleware/upload');
 const customerRouter = Router();
 customerRouter.use(authenticate);
 
+customerRouter.use((req, res, next) => { console.log('[Chat Route]', req.method, req.path, 'user:', req.user?.id); next(); });
 customerRouter.get('/conversations', chatController.customerGetConversations);
 customerRouter.post('/conversations', validate(schemas.createConversation), chatController.customerCreateConversation);
 customerRouter.get('/conversations/:id/messages', validateParams(schemas.uuidParam), validateQuery(schemas.chatMessagesQuery), chatController.customerGetMessages);

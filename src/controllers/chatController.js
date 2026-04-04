@@ -17,6 +17,7 @@ async function customerGetConversations(req, res) {
 async function customerCreateConversation(req, res) {
   try {
     const { subject, category, relatedBookingId, message } = req.body;
+    console.log('[Chat] Creating conversation for user:', req.user.id, 'body:', JSON.stringify(req.body));
 
     const conversation = await chatQueries.createConversation({
       customerId: req.user.id,
