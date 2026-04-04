@@ -61,8 +61,8 @@ async function dashboard(req, res) {
 
     res.json({ stats, recentBookings: bookings, recentUsers: users });
   } catch (err) {
-    console.error('[Dashboard Error]', err.message);
-    res.status(500).json({ error: 'Failed to load dashboard' });
+    console.error('[Dashboard Error]', err.message, err.stack);
+    res.status(500).json({ error: 'Failed to load dashboard', detail: err.message });
   }
 }
 
