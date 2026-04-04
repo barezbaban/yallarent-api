@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Partners from './pages/Partners';
+import PartnerForm from './pages/PartnerForm';
 import PartnerDetail from './pages/PartnerDetail';
 import Roles from './pages/Roles';
 import BackofficeUsers from './pages/BackofficeUsers';
@@ -52,7 +53,9 @@ export default function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/partners" element={<Partners />} />
+          <Route path="/partners/new" element={<RequirePermission permission="companies.add"><PartnerForm /></RequirePermission>} />
           <Route path="/partners/:id" element={<PartnerDetail />} />
+          <Route path="/partners/:id/edit" element={<RequirePermission permission="companies.edit"><PartnerForm /></RequirePermission>} />
           <Route path="/cars" element={<PlaceholderPage title="Cars" />} />
           <Route path="/bookings" element={<PlaceholderPage title="Bookings" />} />
           <Route path="/reviews" element={<PlaceholderPage title="Reviews" />} />

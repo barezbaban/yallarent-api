@@ -5,8 +5,10 @@ async function findAll() {
     `SELECT co.*,
             COUNT(c.id)::int AS car_count
      FROM companies co
+     LEFT JOIN partners p ON p.id = co.id
      LEFT JOIN cars c ON c.company_id = co.id AND c.is_available = TRUE
      WHERE co.is_active = TRUE
+       AND (p.id IS NULL OR p.status = 'active')
      GROUP BY co.id
      ORDER BY co.name`
   );

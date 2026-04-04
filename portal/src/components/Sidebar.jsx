@@ -43,7 +43,7 @@ export default function Sidebar() {
         {NAV.filter(item => !item.permission || hasPermission(item.permission)).map(({ path, label, icon: Icon }) => (
           <button
             key={path}
-            className={`nav-item ${location.pathname === path ? 'active' : ''}`}
+            className={`nav-item ${(path === '/' ? location.pathname === '/' : location.pathname.startsWith(path)) ? 'active' : ''}`}
             onClick={() => navigate(path)}
           >
             <Icon size={18} />

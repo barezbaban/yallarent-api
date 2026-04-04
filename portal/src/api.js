@@ -189,6 +189,111 @@ export async function resetBackofficeUserPassword(id) {
   return backofficeRequest(`/users/${id}/reset-password`, { method: 'POST' });
 }
 
+// ── Partners ──
+export async function fetchPartners(params = {}) {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== '')).toString();
+  return backofficeRequest(`/partners${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchPartner(id) {
+  return backofficeRequest(`/partners/${id}`);
+}
+
+export async function createPartner(data) {
+  return backofficeRequest('/partners', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updatePartner(id, data) {
+  return backofficeRequest(`/partners/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function activatePartner(id) {
+  return backofficeRequest(`/partners/${id}/activate`, { method: 'PUT', body: '{}' });
+}
+
+export async function suspendPartner(id, suspension_reason) {
+  return backofficeRequest(`/partners/${id}/suspend`, { method: 'PUT', body: JSON.stringify({ suspension_reason }) });
+}
+
+export async function reactivatePartner(id) {
+  return backofficeRequest(`/partners/${id}/reactivate`, { method: 'PUT', body: '{}' });
+}
+
+export async function terminatePartner(id, termination_reason) {
+  return backofficeRequest(`/partners/${id}/terminate`, { method: 'PUT', body: JSON.stringify({ termination_reason }) });
+}
+
+export async function fetchPartnerStats() {
+  return backofficeRequest('/partners/stats');
+}
+
+export async function fetchPartnerContracts(id) {
+  return backofficeRequest(`/partners/${id}/contracts`);
+}
+
+export async function createPartnerContract(id, data) {
+  return backofficeRequest(`/partners/${id}/contracts`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updatePartnerContract(id, contractId, data) {
+  return backofficeRequest(`/partners/${id}/contracts/${contractId}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function fetchPartnerDocuments(id) {
+  return backofficeRequest(`/partners/${id}/documents`);
+}
+
+export async function uploadPartnerDocument(id, formData) {
+  const token = getToken();
+  const res = await fetch(`${BACKOFFICE_BASE}/partners/${id}/documents`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Upload failed'); }
+  return res.json();
+}
+
+export async function verifyPartnerDocument(id, docId) {
+  return backofficeRequest(`/partners/${id}/documents/${docId}/verify`, { method: 'PUT', body: '{}' });
+}
+
+export async function deletePartnerDocument(id, docId) {
+  return backofficeRequest(`/partners/${id}/documents/${docId}`, { method: 'DELETE' });
+}
+
+export async function fetchExpiringDocuments() {
+  return backofficeRequest('/partners/documents/expiring');
+}
+
+export async function fetchPartnerPayouts(id) {
+  return backofficeRequest(`/partners/${id}/payouts`);
+}
+
+export async function generatePartnerPayout(id, data) {
+  return backofficeRequest(`/partners/${id}/payouts/generate`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function createPartnerPayout(id, data) {
+  return backofficeRequest(`/partners/${id}/payouts`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updatePartnerPayout(id, payoutId, data) {
+  return backofficeRequest(`/partners/${id}/payouts/${payoutId}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export async function fetchPartnerNotes(id) {
+  return backofficeRequest(`/partners/${id}/notes`);
+}
+
+export async function createPartnerNote(id, data) {
+  return backofficeRequest(`/partners/${id}/notes`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function fetchPartnerRevenue(id) {
+  return backofficeRequest(`/partners/${id}/revenue`);
+}
+
 // ── Chat / Support ──
 const AGENT_CHAT_BASE = '/api/agent/chat';
 

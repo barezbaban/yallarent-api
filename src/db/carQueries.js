@@ -5,7 +5,9 @@ async function findAll({ city, minPrice, maxPrice, category, transmission, minPa
     SELECT c.*, co.name AS company_name, co.city AS company_city
     FROM cars c
     JOIN companies co ON c.company_id = co.id
+    LEFT JOIN partners p ON c.partner_id = p.id
     WHERE c.is_available = TRUE
+      AND (p.id IS NULL OR p.status = 'active')
   `;
   const params = [];
 
