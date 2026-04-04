@@ -44,10 +44,11 @@ END $$;
 -- Re-add email unique as partial index (only where email is not null)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_backoffice_users_email ON backoffice_users(email) WHERE email IS NOT NULL;
 
--- Copy admin from admins table to backoffice_users if admins table exists
+-- Sync admin passwords from admins table to backoffice_users
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'admins') THEN
+    -- Insert any missing admins
     INSERT INTO backoffice_users (full_name, username, email, password_hash, role_id, must_change_password, is_active)
     SELECT
       a.full_name,
@@ -61,5 +62,11 @@ BEGIN
     WHERE NOT EXISTS (SELECT 1 FROM backoffice_users bu WHERE bu.email = a.email)
       AND EXISTS (SELECT 1 FROM roles WHERE name = 'Super Admin')
     ON CONFLICT DO NOTHING;
+
+    -- Sync password hashes for existing users
+    UPDATE backoffice_users bu
+    SET password_hash = a.password_hash
+    FROM admins a
+    WHERE bu.email = a.email;
   END IF;
 END $$;
