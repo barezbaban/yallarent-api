@@ -18,12 +18,6 @@ async function customerCreateConversation(req, res) {
   try {
     const { subject, category, relatedBookingId, message } = req.body;
 
-    // Rate limit: max 10 conversations per hour
-    const recentCount = await chatQueries.countRecentConversations(req.user.id, 1);
-    if (recentCount >= 10) {
-      return res.status(429).json({ error: 'Too many conversations. Please wait before starting a new one.' });
-    }
-
     const conversation = await chatQueries.createConversation({
       customerId: req.user.id,
       subject,

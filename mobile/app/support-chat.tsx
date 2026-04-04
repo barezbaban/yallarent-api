@@ -152,7 +152,7 @@ export default function SupportChatScreen() {
       setMessages([result.message]);
       setScreen('thread');
       loadConversations();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create conversation:', err);
     } finally {
       setSending(false);
