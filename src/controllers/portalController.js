@@ -27,7 +27,7 @@ async function login(req, res) {
     }
 
     const token = jwt.sign(
-      { id: admin.id, role: admin.role, jti: crypto.randomUUID() },
+      { id: admin.id, role: admin.role, type: 'backoffice', jti: crypto.randomUUID() },
       jwtSecret,
       { expiresIn: '8h', algorithm: 'HS256' }
     );
