@@ -104,7 +104,9 @@ async function customerSendMessage(req, res) {
       fileName,
     });
 
-    await chatQueries.updateLastMessage(id, content || fileName || 'Attachment');
+    const msgType = req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'file') : messageType;
+    const preview = msgType === 'image' ? '📷 Photo' : (content || fileName || 'Attachment');
+    await chatQueries.updateLastMessage(id, preview);
     await chatQueries.incrementUnread(id, 'agent');
 
     // Update status if it was waiting_on_customer
@@ -212,7 +214,9 @@ async function agentSendMessage(req, res) {
       fileName,
     });
 
-    await chatQueries.updateLastMessage(id, content || fileName || 'Attachment');
+    const agentMsgType = req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'file') : messageType;
+    const agentPreview = agentMsgType === 'image' ? '📷 Photo' : (content || fileName || 'Attachment');
+    await chatQueries.updateLastMessage(id, agentPreview);
     await chatQueries.incrementUnread(id, 'customer');
 
     // Auto-assign if unassigned
@@ -244,12 +248,20 @@ async function agentUpdateConversation(req, res) {
     const conv = await chatQueries.findConversationById(id);
     if (!conv) return res.status(404).json({ error: 'Conversation not found' });
 
+    // If agent is closing, use closeConversation for proper tracking
+    if (req.body.status === 'closed' && conv.status !== 'closed') {
+      await chatQueries.closeConversation(id, 'agent');
+    }
     const updated = await chatQueries.updateConversation(id, req.body);
 
     // Add system messages for changes
     const systemMessages = [];
     if (req.body.status && req.body.status !== conv.status) {
-      systemMessages.push(`Status changed to ${req.body.status}`);
+      if (req.body.status === 'closed') {
+        systemMessages.push('Support agent closed this conversation');
+      } else {
+        systemMessages.push(`Status changed to ${req.body.status}`);
+      }
     }
     if (req.body.priority && req.body.priority !== conv.priority) {
       systemMessages.push(`Priority changed to ${req.body.priority}`);
@@ -426,12 +438,130 @@ async function deleteCannedResponse(req, res) {
   }
 }
 
+// ── Customer Close Conversation ──
+
+async function customerCloseConversation(req, res) {
+  try {
+    const { id } = req.params;
+    const conv = await chatQueries.findConversationById(id);
+    if (!conv || conv.customer_id !== req.user.id) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    if (conv.status === 'closed') {
+      return res.status(400).json({ error: 'This conversation is already closed' });
+    }
+
+    const updated = await chatQueries.closeConversation(id, 'customer');
+
+    await chatQueries.addMessage({
+      conversationId: id,
+      senderType: 'system',
+      senderId: null,
+      content: 'Customer ended the conversation',
+      messageType: 'system_event',
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.of('/chat-agent').emit('conversation_updated', { ...updated, closed_by: 'customer' });
+      io.of('/chat-customer').to(`conv:${id}`).emit('conversation_updated', { ...updated, closed_by: 'customer' });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    console.error('[Chat] customerCloseConversation error:', err.message);
+    res.status(500).json({ error: 'Failed to close conversation' });
+  }
+}
+
+// ── Ratings ──
+
+async function customerSubmitRating(req, res) {
+  try {
+    const { id } = req.params;
+    const conv = await chatQueries.findConversationById(id);
+    if (!conv || conv.customer_id !== req.user.id) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    if (conv.status !== 'closed') {
+      return res.status(400).json({ error: 'You can only rate closed conversations' });
+    }
+
+    const existing = await chatQueries.findRatingByConversation(id);
+    if (existing) {
+      return res.status(400).json({ error: "You've already rated this conversation" });
+    }
+
+    const { rating, feedbackText } = req.body;
+    const saved = await chatQueries.createRating({
+      conversationId: id,
+      customerId: req.user.id,
+      rating,
+      feedbackText,
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.of('/chat-agent').emit('conversation_rated', { conversationId: id, rating: saved });
+    }
+
+    res.status(201).json(saved);
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ error: "You've already rated this conversation" });
+    }
+    console.error('[Chat] customerSubmitRating error:', err.message);
+    res.status(500).json({ error: 'Failed to submit rating' });
+  }
+}
+
+async function customerGetRating(req, res) {
+  try {
+    const { id } = req.params;
+    const conv = await chatQueries.findConversationById(id);
+    if (!conv || conv.customer_id !== req.user.id) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    const rating = await chatQueries.findRatingByConversation(id);
+    if (!rating) return res.status(404).json({ error: 'Not rated yet' });
+    res.json(rating);
+  } catch (err) {
+    console.error('[Chat] customerGetRating error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch rating' });
+  }
+}
+
+async function agentGetRating(req, res) {
+  try {
+    const rating = await chatQueries.findRatingByConversation(req.params.id);
+    if (!rating) return res.status(404).json({ error: 'Not rated yet' });
+    res.json(rating);
+  } catch (err) {
+    console.error('[Chat] agentGetRating error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch rating' });
+  }
+}
+
+async function agentGetRatingsSummary(req, res) {
+  try {
+    const summary = await chatQueries.getRatingsSummary();
+    res.json(summary);
+  } catch (err) {
+    console.error('[Chat] agentGetRatingsSummary error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch ratings summary' });
+  }
+}
+
 module.exports = {
   customerGetConversations,
   customerCreateConversation,
   customerGetMessages,
   customerSendMessage,
   customerGetUnreadCount,
+  customerCloseConversation,
+  customerSubmitRating,
+  customerGetRating,
   agentGetConversations,
   agentGetConversation,
   agentGetMessages,
@@ -441,6 +571,8 @@ module.exports = {
   deleteMessageHandler,
   agentAddNote,
   agentGetNotes,
+  agentGetRating,
+  agentGetRatingsSummary,
   getCannedResponses,
   createCannedResponse,
   updateCannedResponse,

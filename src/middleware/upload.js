@@ -2,7 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
 
-const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const ALLOWED_MIME = ['image/jpeg', 'image/png'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
 const storage = multer.diskStorage({
@@ -19,7 +19,7 @@ const fileFilter = (req, file, cb) => {
   if (ALLOWED_MIME.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only JPG, PNG, WebP, and PDF files are allowed'), false);
+    cb(new Error('Only JPG and PNG images are allowed'), false);
   }
 };
 

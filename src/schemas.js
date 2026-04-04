@@ -116,7 +116,7 @@ const createConversation = z.object({
 });
 
 const sendChatMessage = z.object({
-  content: z.string().min(1, 'Message is required').max(2000),
+  content: z.string().max(2000).optional().default(''),
   messageType: z.enum(['text', 'image', 'file', 'canned_response']).optional().default('text'),
 });
 
@@ -161,6 +161,11 @@ const addChatNote = z.object({
 
 const editMessage = z.object({
   content: z.string().min(1, 'Message is required').max(2000),
+});
+
+const submitRating = z.object({
+  rating: z.number().int().min(1).max(5),
+  feedbackText: z.string().max(1000).optional(),
 });
 
 // Backoffice schemas
@@ -237,4 +242,5 @@ module.exports = {
   updateCannedResponseSchema,
   addChatNote,
   editMessage,
+  submitRating,
 };

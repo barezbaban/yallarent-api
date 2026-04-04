@@ -67,10 +67,12 @@ async function findConversationsForAgent({ status, priority, category, assignedA
 
   const { rows } = await pool.query(
     `SELECT c.*, u.full_name AS customer_name, u.phone AS customer_phone,
-            ba.full_name AS agent_name
+            ba.full_name AS agent_name,
+            cr.rating
      FROM conversations c
      JOIN users u ON u.id = c.customer_id
      LEFT JOIN backoffice_users ba ON ba.id = c.assigned_agent_id
+     LEFT JOIN conversation_ratings cr ON cr.conversation_id = c.id
      ${where}
      ORDER BY c.last_message_at DESC`,
     values
@@ -313,6 +315,54 @@ async function deleteCannedResponse(id) {
   await pool.query('UPDATE canned_responses SET is_active = FALSE WHERE id = $1', [id]);
 }
 
+// ── Close Conversation ──
+
+async function closeConversation(id, closedBy) {
+  const { rows } = await pool.query(
+    `UPDATE conversations SET status = 'closed', closed_by = $1, closed_at = NOW(), updated_at = NOW()
+     WHERE id = $2 RETURNING *`,
+    [closedBy, id]
+  );
+  return rows[0];
+}
+
+// ── Ratings ──
+
+async function createRating({ conversationId, customerId, rating, feedbackText }) {
+  const { rows } = await pool.query(
+    `INSERT INTO conversation_ratings (conversation_id, customer_id, rating, feedback_text)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [conversationId, customerId, rating, feedbackText || null]
+  );
+  return rows[0];
+}
+
+async function findRatingByConversation(conversationId) {
+  const { rows } = await pool.query(
+    `SELECT * FROM conversation_ratings WHERE conversation_id = $1`,
+    [conversationId]
+  );
+  return rows[0];
+}
+
+async function getRatingsSummary() {
+  const { rows } = await pool.query(`
+    SELECT
+      COUNT(*)::int AS total_rated,
+      ROUND(AVG(rating)::numeric, 1) AS average_rating,
+      COUNT(*) FILTER (WHERE rating = 1)::int AS star_1,
+      COUNT(*) FILTER (WHERE rating = 2)::int AS star_2,
+      COUNT(*) FILTER (WHERE rating = 3)::int AS star_3,
+      COUNT(*) FILTER (WHERE rating = 4)::int AS star_4,
+      COUNT(*) FILTER (WHERE rating = 5)::int AS star_5,
+      ROUND(AVG(rating) FILTER (WHERE created_at > NOW() - INTERVAL '7 days')::numeric, 1) AS avg_7d,
+      ROUND(AVG(rating) FILTER (WHERE created_at > NOW() - INTERVAL '30 days')::numeric, 1) AS avg_30d,
+      ROUND(AVG(rating) FILTER (WHERE created_at > NOW() - INTERVAL '90 days')::numeric, 1) AS avg_90d
+    FROM conversation_ratings
+  `);
+  return rows[0];
+}
+
 module.exports = {
   createConversation, findOpenConversation, findConversationById, findConversationsByCustomer,
   findConversationsForAgent, getConversationWithCustomerProfile, updateConversation,
@@ -322,4 +372,5 @@ module.exports = {
   addMessage, getMessages, markMessagesRead, updateMessage, softDeleteMessage, findMessageById,
   addNote, getNotes,
   findAllCannedResponses, createCannedResponse, updateCannedResponse, deleteCannedResponse,
+  closeConversation, createRating, findRatingByConversation, getRatingsSummary,
 };

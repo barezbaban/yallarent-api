@@ -17,6 +17,13 @@ customerRouter.get('/conversations/:id/messages', validateParams(schemas.uuidPar
 customerRouter.post('/conversations/:id/messages', validateParams(schemas.uuidParam), chatUpload.single('file'), validate(schemas.sendChatMessage), chatController.customerSendMessage);
 customerRouter.get('/unread', chatController.customerGetUnreadCount);
 
+// Close conversation
+customerRouter.patch('/conversations/:id/close', validateParams(schemas.uuidParam), chatController.customerCloseConversation);
+
+// Ratings
+customerRouter.post('/conversations/:id/rating', validateParams(schemas.uuidParam), validate(schemas.submitRating), chatController.customerSubmitRating);
+customerRouter.get('/conversations/:id/rating', validateParams(schemas.uuidParam), chatController.customerGetRating);
+
 // Edit / delete own messages
 customerRouter.patch('/messages/:messageId', validate(schemas.editMessage), chatController.editMessageHandler);
 customerRouter.delete('/messages/:messageId', chatController.deleteMessageHandler);
@@ -30,6 +37,10 @@ agentRouter.get('/conversations/:id', validateParams(schemas.uuidParam), chatCon
 agentRouter.patch('/conversations/:id', validateParams(schemas.uuidParam), validate(schemas.updateConversationSchema), chatController.agentUpdateConversation);
 agentRouter.get('/conversations/:id/messages', validateParams(schemas.uuidParam), validateQuery(schemas.chatMessagesQuery), chatController.agentGetMessages);
 agentRouter.post('/conversations/:id/messages', validateParams(schemas.uuidParam), chatUpload.single('file'), validate(schemas.sendChatMessage), chatController.agentSendMessage);
+
+// Ratings
+agentRouter.get('/conversations/:id/rating', validateParams(schemas.uuidParam), chatController.agentGetRating);
+agentRouter.get('/ratings/summary', chatController.agentGetRatingsSummary);
 
 // Notes
 agentRouter.get('/conversations/:id/notes', validateParams(schemas.uuidParam), chatController.agentGetNotes);

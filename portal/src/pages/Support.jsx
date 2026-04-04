@@ -3,12 +3,13 @@ import { io } from 'socket.io-client';
 import {
   fetchChatConversations, fetchChatConversation, fetchChatMessages,
   sendAgentMessage, updateConversation, fetchChatNotes, addChatNote,
-  fetchCannedResponses, getToken, getAdmin,
+  fetchCannedResponses, fetchConversationRating, getToken, getAdmin,
 } from '../api';
 import {
   Search, Send, Paperclip, MoreVertical, Clock, User, Car, Calendar,
   ChevronDown, MessageSquare, AlertCircle, X, StickyNote, Hash,
   Circle, CheckCircle2, ArrowUpCircle, Loader2, Trash2, Edit3, WifiOff,
+  Star, Download, ZoomIn,
 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
@@ -75,6 +76,8 @@ export default function Support() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [showNewMsgPill, setShowNewMsgPill] = useState(false);
   const [toast, setToast] = useState(null);
+  const [imageModal, setImageModal] = useState(null); // { url, name }
+  const [rating, setRating] = useState(null); // conversation rating
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -258,6 +261,23 @@ export default function Support() {
       }
     });
 
+    // ── Customer rated a conversation ──
+    socket.on('conversation_rated', (data) => {
+      if (data.conversationId === selectedIdRef.current) {
+        setRating(data.rating);
+      }
+    });
+
+    // ── Customer closed conversation ──
+    socket.on('conversation_closed', (data) => {
+      setConversations(prev => prev.map(c =>
+        c.id === data.conversationId ? { ...c, status: 'closed', closed_by: data.closedBy, closed_at: data.closedAt } : c
+      ));
+      if (data.conversationId === selectedIdRef.current) {
+        setConvDetail(prev => prev ? { ...prev, status: 'closed', closed_by: data.closedBy, closed_at: data.closedAt } : prev);
+      }
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;
@@ -280,6 +300,7 @@ export default function Support() {
     setShowCanned(false);
     setTyping(null);
     setShowNewMsgPill(false);
+    setRating(null);
     try {
       const [detail, msgs, notesList, canned] = await Promise.all([
         fetchChatConversation(id),
@@ -292,6 +313,11 @@ export default function Support() {
       setMessages(msgs);
       setNotes(notesList);
       setCannedResponses(canned);
+
+      // Fetch rating if conversation is closed
+      if (detail.conversation.status === 'closed') {
+        fetchConversationRating(id).then(r => setRating(r));
+      }
 
       // Clear unread badge for this conversation
       setConversations(prev => prev.map(c =>
@@ -548,6 +574,11 @@ export default function Support() {
               <div className="support-item-preview">{conv.last_message_preview || 'No messages yet'}</div>
               <div className="support-item-bottom">
                 {statusPill(conv.status)}
+                {conv.rating && (
+                  <span className="support-item-rating">
+                    <Star size={11} fill="#F59E0B" stroke="#F59E0B" /> {conv.rating}
+                  </span>
+                )}
                 {conv.unread_count_agent > 0 && (
                   <span className="support-unread-badge">{conv.unread_count_agent}</span>
                 )}
@@ -634,7 +665,15 @@ export default function Support() {
                             <div className={`support-msg-bubble ${msg.is_deleted ? 'deleted' : ''}`}>
                               <div className="support-msg-content">
                                 {msg.message_type === 'image' && msg.file_url && !msg.is_deleted && (
-                                  <img src={msg.file_url} alt="Attachment" className="support-msg-image" />
+                                  <div
+                                    className="support-msg-image-wrap"
+                                    onClick={() => setImageModal({ url: msg.file_url, name: msg.file_name || 'image' })}
+                                  >
+                                    <img src={msg.file_url} alt="Attachment" className="support-msg-image" />
+                                    <div className="support-msg-image-overlay">
+                                      <ZoomIn size={18} />
+                                    </div>
+                                  </div>
                                 )}
                                 {msg.message_type === 'file' && msg.file_url && !msg.is_deleted && (
                                   <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="support-msg-file">
@@ -669,37 +708,48 @@ export default function Support() {
                   </div>
                 )}
 
-                <div className="support-input-area">
-                  {showCanned && (
-                    <div className="support-canned-dropdown">
-                      {filteredCanned.length === 0 && <div className="support-canned-empty">No matching responses</div>}
-                      {filteredCanned.map(c => (
-                        <div key={c.id} className="support-canned-item" onClick={() => handleCannedSelect(c)}>
-                          <span className="support-canned-shortcut">{c.shortcut}</span>
-                          <span className="support-canned-title">{c.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="support-input-row">
-                    <button className="icon-btn" onClick={() => fileInputRef.current?.click()}>
-                      <Paperclip size={18} />
-                    </button>
-                    <input type="file" ref={fileInputRef} hidden accept="image/*,.pdf" onChange={handleFileUpload} />
-                    <textarea
-                      ref={inputRef}
-                      className="support-input"
-                      placeholder='Type a message... (use "/" for canned responses)'
-                      value={input}
-                      onChange={handleInputChange}
-                      onKeyDown={handleKeyDown}
-                      rows={1}
-                    />
-                    <button className="support-send-btn" onClick={handleSend} disabled={!input.trim()}>
-                      <Send size={18} />
-                    </button>
+                {convDetail?.status === 'closed' ? (
+                  <div className="support-closed-banner">
+                    <AlertCircle size={14} />
+                    <span>
+                      This conversation was closed
+                      {convDetail.closed_by === 'customer' ? ' by the customer' : ' by an agent'}
+                      {convDetail.closed_at && ` on ${formatDate(convDetail.closed_at)}`}
+                    </span>
                   </div>
-                </div>
+                ) : (
+                  <div className="support-input-area">
+                    {showCanned && (
+                      <div className="support-canned-dropdown">
+                        {filteredCanned.length === 0 && <div className="support-canned-empty">No matching responses</div>}
+                        {filteredCanned.map(c => (
+                          <div key={c.id} className="support-canned-item" onClick={() => handleCannedSelect(c)}>
+                            <span className="support-canned-shortcut">{c.shortcut}</span>
+                            <span className="support-canned-title">{c.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="support-input-row">
+                      <button className="icon-btn" onClick={() => fileInputRef.current?.click()}>
+                        <Paperclip size={18} />
+                      </button>
+                      <input type="file" ref={fileInputRef} hidden accept="image/jpeg,image/png" onChange={handleFileUpload} />
+                      <textarea
+                        ref={inputRef}
+                        className="support-input"
+                        placeholder='Type a message... (use "/" for canned responses)'
+                        value={input}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                        rows={1}
+                      />
+                      <button className="support-send-btn" onClick={handleSend} disabled={!input.trim()}>
+                        <Send size={18} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </>
@@ -762,7 +812,34 @@ export default function Support() {
                 <label>Assigned</label>
                 <span className="support-context-value">{convDetail.agent_name || 'Unassigned'}</span>
               </div>
+              {convDetail.status === 'closed' && convDetail.closed_by && (
+                <div className="support-context-field">
+                  <label>Closed by</label>
+                  <span className="support-context-value">
+                    {convDetail.closed_by === 'customer' ? 'Customer' : 'Agent'}
+                    {convDetail.closed_at && ` · ${formatDate(convDetail.closed_at)}`}
+                  </span>
+                </div>
+              )}
             </div>
+
+            {rating && (
+              <div className="support-context-section">
+                <h3 className="support-context-title">Customer Rating</h3>
+                <div className="support-rating-display">
+                  <div className="support-rating-stars">
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <Star key={s} size={18} fill={s <= rating.rating ? '#F59E0B' : 'none'} stroke={s <= rating.rating ? '#F59E0B' : '#CBD5E1'} />
+                    ))}
+                    <span className="support-rating-number">{rating.rating}/5</span>
+                  </div>
+                  {rating.feedback_text && (
+                    <div className="support-rating-feedback">"{rating.feedback_text}"</div>
+                  )}
+                  <div className="support-context-meta" style={{ marginTop: 4 }}>{formatDate(rating.created_at)}</div>
+                </div>
+              </div>
+            )}
 
             {customerContext?.relatedBooking && (
               <div className="support-context-section">
@@ -819,6 +896,28 @@ export default function Support() {
           </div>
         )}
       </div>
+
+      {/* ─── Image Modal ─── */}
+      {imageModal && (
+        <div className="support-image-modal-overlay" onClick={() => setImageModal(null)}>
+          <div className="support-image-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="support-image-modal-header">
+              <span className="support-image-modal-name">{imageModal.name}</span>
+              <div className="support-image-modal-actions">
+                <a href={imageModal.url} download={imageModal.name} className="icon-btn" title="Download">
+                  <Download size={18} />
+                </a>
+                <button className="icon-btn" onClick={() => setImageModal(null)} title="Close">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="support-image-modal-body">
+              <img src={imageModal.url} alt={imageModal.name} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

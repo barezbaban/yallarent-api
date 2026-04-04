@@ -287,6 +287,17 @@ export interface ChatConversation {
   last_message_preview: string;
   created_at: string;
   agent_name?: string;
+  closed_by?: string | null;
+  closed_at?: string | null;
+}
+
+export interface ChatRating {
+  id: string;
+  conversation_id: string;
+  customer_id: string;
+  rating: number;
+  feedback_text: string | null;
+  created_at: string;
 }
 
 export interface ChatMessage {
@@ -365,4 +376,50 @@ export const chatApi = {
     }
     return res.json() as Promise<ChatMessage>;
   },
+
+  uploadFileWithProgress: (
+    conversationId: string,
+    file: { uri: string; name: string; type: string },
+    onProgress: (pct: number) => void,
+  ): Promise<ChatMessage> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_URL}/chat/conversations/${conversationId}/messages`);
+      if (_token) xhr.setRequestHeader('Authorization', `Bearer ${_token}`);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText));
+        } else {
+          const body = JSON.parse(xhr.responseText || '{}');
+          reject(new Error(body.error || `Upload failed: ${xhr.status}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+
+      const formData = new FormData();
+      formData.append('file', { uri: file.uri, name: file.name, type: file.type } as any);
+      formData.append('content', '');
+      formData.append('messageType', file.type.startsWith('image/') ? 'image' : 'file');
+      xhr.send(formData);
+    });
+  },
+
+  closeConversation: (conversationId: string) =>
+    request<ChatConversation>(`/chat/conversations/${conversationId}/close`, {
+      method: 'PATCH',
+      body: JSON.stringify({}),
+    }),
+
+  submitRating: (conversationId: string, data: { rating: number; feedbackText?: string }) =>
+    request<ChatRating>(`/chat/conversations/${conversationId}/rating`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getRating: (conversationId: string) =>
+    request<ChatRating>(`/chat/conversations/${conversationId}/rating`).catch(() => null),
 };

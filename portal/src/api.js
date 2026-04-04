@@ -238,3 +238,11 @@ export async function addChatNote(id, data) {
 export async function fetchCannedResponses() {
   return agentChatRequest('/canned-responses');
 }
+
+export async function fetchConversationRating(conversationId) {
+  return agentChatRequest(`/conversations/${conversationId}/rating`).catch(() => null);
+}
+
+export async function fetchRatingsSummary() {
+  return agentChatRequest('/ratings/summary');
+}
