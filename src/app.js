@@ -74,44 +74,14 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/backoffice', backofficeRoutes);
-// Track chat requests for debugging
-let chatRequestLog = [];
-app.use('/api/chat', (req, res, next) => {
-  const entry = { method: req.method, path: req.path, time: new Date().toISOString(), auth: !!req.headers.authorization };
-  const origJson = res.json.bind(res);
-  res.json = function(body) {
-    entry.status = res.statusCode;
-    entry.response = typeof body === 'object' ? JSON.stringify(body).substring(0, 300) : String(body).substring(0, 300);
-    chatRequestLog.push(entry);
-    if (chatRequestLog.length > 20) chatRequestLog = chatRequestLog.slice(-20);
-    return origJson(body);
-  };
-  next();
-});
-
 app.use('/api/chat', chatCustomerRoutes);
 app.use('/api/agent/chat', chatAgentRoutes);
 
 // Serve uploaded chat files
 app.use('/uploads/chat', express.static(path.join(__dirname, '..', 'uploads', 'chat')));
 
-app.get('/api/health', async (req, res) => {
-  const pool = require('./config/db');
-  let dbInfo = {};
-  try {
-    const convCount = await pool.query('SELECT COUNT(*)::int AS c FROM conversations');
-    const userCount = await pool.query('SELECT COUNT(*)::int AS c FROM users');
-    const dbUrl = process.env.DATABASE_URL || '';
-    const hostMatch = dbUrl.match(/@([^:\/]+)/);
-    dbInfo = {
-      convCount: convCount.rows[0].c,
-      userCount: userCount.rows[0].c,
-      dbHost: hostMatch ? hostMatch[1] : 'unknown',
-    };
-  } catch (e) {
-    dbInfo = { error: e.message };
-  }
-  res.json({ status: 'ok', version: 'chat-v4', db: dbInfo, chatRequests: chatRequestLog });
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
 // Serve backoffice portal static files
