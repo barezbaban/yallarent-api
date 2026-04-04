@@ -7,6 +7,11 @@ function requirePermission(permissionKey) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
+      // Superadmin bypasses all permission checks
+      if (req.admin.role === 'superadmin' || req.admin.role === 'admin') {
+        return next();
+      }
+
       // If permissions were included in the JWT payload, use them directly
       if (req.admin.permissions) {
         if (req.admin.permissions[permissionKey] === true) {
