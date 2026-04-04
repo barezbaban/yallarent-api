@@ -1,7 +1,36 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, changePassword } from '../api';
-import { Car, Lock } from 'lucide-react';
+import { Car, Lock, Eye, EyeOff } from 'lucide-react';
+
+function PasswordInput({ value, onChange, placeholder, ...props }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        className="form-input"
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        style={{ paddingRight: 40 }}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setShow(!show)}
+        style={{
+          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+          background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+          color: 'var(--text-muted)',
+        }}
+        tabIndex={-1}
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -76,9 +105,7 @@ export default function Login() {
 
           <div className="form-group">
             <label className="form-label">New Password</label>
-            <input
-              className="form-input"
-              type="password"
+            <PasswordInput
               placeholder="At least 8 characters"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -89,9 +116,7 @@ export default function Login() {
 
           <div className="form-group">
             <label className="form-label">Confirm Password</label>
-            <input
-              className="form-input"
-              type="password"
+            <PasswordInput
               placeholder="Re-enter your new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -135,9 +160,7 @@ export default function Login() {
 
         <div className="form-group">
           <label className="form-label">Password</label>
-          <input
-            className="form-input"
-            type="password"
+          <PasswordInput
             placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
