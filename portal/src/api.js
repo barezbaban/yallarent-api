@@ -35,13 +35,14 @@ function backofficeRequest(path, options = {}) {
 
 // ── Auth ──
 export async function login(email, password) {
-  const data = await request('/auth/login', {
+  const data = await request('/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
-  }, BACKOFFICE_BASE, { skipAuthRedirect: true });
+  }, PORTAL_BASE, { skipAuthRedirect: true });
+  const user = data.admin || data.user;
   localStorage.setItem('portal_token', data.token);
-  localStorage.setItem('portal_admin', JSON.stringify(data.user));
-  localStorage.setItem('portal_permissions', JSON.stringify(data.user.permissions || {}));
+  localStorage.setItem('portal_admin', JSON.stringify(user));
+  localStorage.setItem('portal_permissions', JSON.stringify(user.permissions || {}));
   return data;
 }
 
