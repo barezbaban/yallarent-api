@@ -81,7 +81,7 @@ app.use('/api/agent/chat', chatAgentRoutes);
 app.use('/uploads/chat', express.static(path.join(__dirname, '..', 'uploads', 'chat')));
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', version: 'chat-v2' });
 });
 
 // Serve backoffice portal static files
