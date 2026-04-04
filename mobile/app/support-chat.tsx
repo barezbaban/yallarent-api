@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -71,8 +72,8 @@ export default function SupportChatScreen() {
     try {
       const data = await chatApi.getConversations();
       setConversations(data);
-    } catch (err) {
-      console.error('Failed to load conversations:', err);
+    } catch (err: any) {
+      Alert.alert('Load Error', err.message || 'Failed to load conversations');
     } finally {
       setLoading(false);
     }
@@ -87,8 +88,8 @@ export default function SupportChatScreen() {
     try {
       const msgs = await chatApi.getMessages(convId);
       setMessages(msgs);
-    } catch (err) {
-      console.error('Failed to load messages:', err);
+    } catch (err: any) {
+      Alert.alert('Load Error', err.message || 'Failed to load messages');
     }
   }, []);
 
@@ -126,9 +127,10 @@ export default function SupportChatScreen() {
     try {
       const msg = await chatApi.sendMessage(selectedConvId, { content: text });
       setMessages((prev) => prev.map((m) => (m.id === tempMsg.id ? msg : m)));
-    } catch {
+    } catch (err: any) {
       setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
       setInputText(text);
+      Alert.alert('Send Error', err.message || 'Failed to send message');
     } finally {
       setSending(false);
     }
@@ -153,7 +155,7 @@ export default function SupportChatScreen() {
       setScreen('thread');
       loadConversations();
     } catch (err: any) {
-      console.error('Failed to create conversation:', err);
+      Alert.alert('Error', err.message || 'Failed to create conversation');
     } finally {
       setSending(false);
     }
@@ -177,8 +179,8 @@ export default function SupportChatScreen() {
         type: asset.mimeType || 'image/jpeg',
       });
       setMessages((prev) => [...prev, msg]);
-    } catch (err) {
-      console.error('Failed to upload image:', err);
+    } catch (err: any) {
+      Alert.alert('Upload Error', err.message || 'Failed to upload image');
     } finally {
       setSending(false);
     }
