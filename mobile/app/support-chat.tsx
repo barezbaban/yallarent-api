@@ -6,14 +6,17 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -905,69 +908,80 @@ export default function SupportChatScreen() {
 
       {/* ── Rating Modal Overlay ── */}
       <Modal visible={showRatingModal} transparent animationType="slide" onRequestClose={() => {}}>
-        <View style={styles.ratingOverlay}>
-          <View style={styles.ratingModal}>
-            <View style={styles.ratingModalHandle} />
-            {ratingSuccess ? (
-              <Animated.View style={[styles.ratingSuccessContainer, { opacity: successOpacity }]}>
-                <View style={styles.ratingCheckmark}>
-                  <Ionicons name="checkmark-circle" size={64} color="#16A34A" />
-                </View>
-                <Text style={styles.ratingSuccessText}>
-                  {rating >= 4 ? "Thank you! We're glad we could help." : "Thank you. We'll work on doing better."}
-                </Text>
-              </Animated.View>
-            ) : (
-              <View style={styles.ratingModalContent}>
-                <Text style={styles.ratingModalTitle}>How was your experience?</Text>
-                <Text style={styles.ratingModalSubtitle}>Your feedback helps us improve</Text>
-                <View style={styles.ratingModalStars}>
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <Pressable key={i} onPress={() => handleStarPress(i)} hitSlop={10}>
-                      <Animated.View style={{ transform: [{ scale: starScales[i - 1] }] }}>
-                        <Ionicons
-                          name={i <= rating ? 'star' : 'star-outline'}
-                          size={48}
-                          color={i <= rating ? '#F59E0B' : '#CBD5E1'}
-                        />
-                      </Animated.View>
-                    </Pressable>
-                  ))}
-                </View>
-                {rating > 0 && (
-                  <Animated.View style={[styles.ratingFeedbackWrap, { opacity: feedbackOpacity }]}>
-                    <View style={styles.ratingFeedbackInputWrap}>
-                      <TextInput
-                        style={styles.ratingFeedbackInput}
-                        placeholder={ratingPlaceholder}
-                        placeholderTextColor={Colors.foregroundMuted}
-                        value={feedbackText}
-                        onChangeText={t => setFeedbackText(t.slice(0, 500))}
-                        multiline
-                        maxLength={500}
-                        numberOfLines={3}
-                      />
-                      <Text style={styles.ratingCharCount}>{feedbackText.length} / 500</Text>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.ratingOverlay}>
+              <View style={styles.ratingModal}>
+                <View style={styles.ratingModalHandle} />
+                {ratingSuccess ? (
+                  <Animated.View style={[styles.ratingSuccessContainer, { opacity: successOpacity }]}>
+                    <View style={styles.ratingCheckmark}>
+                      <Ionicons name="checkmark-circle" size={64} color="#16A34A" />
                     </View>
-                    <Pressable
-                      style={[styles.ratingSubmitBtn, submittingRating && { opacity: 0.5 }]}
-                      onPress={handleSubmitRating}
-                      disabled={submittingRating}
-                    >
-                      {submittingRating
-                        ? <ActivityIndicator size="small" color="#FFF" />
-                        : <Text style={styles.ratingSubmitText}>Submit</Text>
-                      }
-                    </Pressable>
+                    <Text style={styles.ratingSuccessText}>
+                      {rating >= 4 ? "Thank you! We're glad we could help." : "Thank you. We'll work on doing better."}
+                    </Text>
                   </Animated.View>
+                ) : (
+                  <ScrollView
+                    contentContainerStyle={styles.ratingModalContent}
+                    keyboardShouldPersistTaps="handled"
+                    bounces={false}
+                  >
+                    <Text style={styles.ratingModalTitle}>How was your experience?</Text>
+                    <Text style={styles.ratingModalSubtitle}>Your feedback helps us improve</Text>
+                    <View style={styles.ratingModalStars}>
+                      {[1, 2, 3, 4, 5].map(i => (
+                        <Pressable key={i} onPress={() => handleStarPress(i)} hitSlop={10}>
+                          <Animated.View style={{ transform: [{ scale: starScales[i - 1] }] }}>
+                            <Ionicons
+                              name={i <= rating ? 'star' : 'star-outline'}
+                              size={48}
+                              color={i <= rating ? '#F59E0B' : '#CBD5E1'}
+                            />
+                          </Animated.View>
+                        </Pressable>
+                      ))}
+                    </View>
+                    {rating > 0 && (
+                      <Animated.View style={[styles.ratingFeedbackWrap, { opacity: feedbackOpacity }]}>
+                        <View style={styles.ratingFeedbackInputWrap}>
+                          <TextInput
+                            style={styles.ratingFeedbackInput}
+                            placeholder={ratingPlaceholder}
+                            placeholderTextColor={Colors.foregroundMuted}
+                            value={feedbackText}
+                            onChangeText={setFeedbackText}
+                            multiline
+                            maxLength={500}
+                            numberOfLines={3}
+                            returnKeyType="done"
+                            blurOnSubmit
+                            onSubmitEditing={Keyboard.dismiss}
+                          />
+                          <Text style={styles.ratingCharCount}>{feedbackText.length} / 500</Text>
+                        </View>
+                        <Pressable
+                          style={[styles.ratingSubmitBtn, submittingRating && { opacity: 0.5 }]}
+                          onPress={handleSubmitRating}
+                          disabled={submittingRating}
+                        >
+                          {submittingRating
+                            ? <ActivityIndicator size="small" color="#FFF" />
+                            : <Text style={styles.ratingSubmitText}>Submit</Text>
+                          }
+                        </Pressable>
+                      </Animated.View>
+                    )}
+                    <Pressable onPress={handleRatingDismiss} style={styles.ratingNotNowBtn}>
+                      <Text style={styles.ratingNotNowText}>Not Now</Text>
+                    </Pressable>
+                  </ScrollView>
                 )}
-                <Pressable onPress={handleRatingDismiss} style={styles.ratingNotNowBtn}>
-                  <Text style={styles.ratingNotNowText}>Not Now</Text>
-                </Pressable>
               </View>
-            )}
-          </View>
-        </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
